@@ -1,12 +1,18 @@
-const express = require("express");
+import dotenv from "dotenv";
+import express from "express";
+
+dotenv.config();
 
 const app = express();
-const PORT = 4005;
+const PORT = process.env.PORT || 4005;
 
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("Payment Service is running");
+  res.json({
+    service: "payment-service",
+    status: "running"
+  });
 });
 
 app.listen(PORT, () => {
