@@ -1,7 +1,26 @@
 const API = "http://localhost:4003/api/appointments";
 
+const parseResponse = async (response) => {
+  const text = await response.text();
+  let data = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      data = { message: text };
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Request failed");
+  }
+
+  return data;
+};
+
 export const createAppointment = async (data) => {
-  const res = await fetch(API, {
+  const response = await fetch(API, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -9,10 +28,15 @@ export const createAppointment = async (data) => {
     body: JSON.stringify(data)
   });
 
-  return res.json();
+  return parseResponse(response);
 };
 
 export const getAppointments = async () => {
-  const res = await fetch(API);
-  return res.json();
+  const response = await fetch(API);
+  return parseResponse(response);
+};
+
+export const getAppointment = async (appointmentId) => {
+  const response = await fetch(`${API}/${appointmentId}`);
+  return parseResponse(response);
 };

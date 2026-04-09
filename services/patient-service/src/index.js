@@ -1,12 +1,18 @@
-const express = require("express");
+import dotenv from "dotenv";
+import express from "express";
+
+dotenv.config();
 
 const app = express();
-const PORT = 4001;
+const PORT = process.env.PORT || 4001;
 
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("Patient Service is running");
+  res.json({
+    service: "patient-service",
+    status: "running"
+  });
 });
 
 app.listen(PORT, () => {

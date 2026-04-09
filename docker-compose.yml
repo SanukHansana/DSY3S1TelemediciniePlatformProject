@@ -63,6 +63,10 @@ services:
       - "4004:4004"
     env_file:
       - ./services/telemedicine-service/.env
+    depends_on:
+      - appointment-service
+    environment:
+      APPOINTMENT_SERVICE_URL: http://appointment-service:4003
 
   # -------------------------
   # PAYMENT SERVICE
