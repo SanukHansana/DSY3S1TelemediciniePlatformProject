@@ -10,6 +10,7 @@ const sendNotificationSchema = Joi.object({
     'APPOINTMENT_REMINDER',
     'PAYMENT_CONFIRMED',
     'PAYMENT_FAILED',
+    'PAYMENT_REFUNDED',
     'PRESCRIPTION_READY',
     'DOCTOR_AVAILABLE'
   ),
@@ -23,6 +24,7 @@ const createTemplateSchema = Joi.object({
     'APPOINTMENT_REMINDER',
     'PAYMENT_CONFIRMED',
     'PAYMENT_FAILED',
+    'PAYMENT_REFUNDED',
     'PRESCRIPTION_READY',
     'DOCTOR_AVAILABLE'
   ),
