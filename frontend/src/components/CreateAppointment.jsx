@@ -76,8 +76,15 @@ export default function CreateAppointment() {
     setError("");
 
     try {
-      await createAppointment(form);
-      navigate("/");
+      const appointment = await createAppointment(form);
+      // Navigate to payment page with appointment ID and consultation fee
+      navigate("/payment", { 
+        state: { 
+          appointmentId: appointment._id || appointment.id,
+          amount: 150.00, // Default consultation fee - can be made dynamic
+          patientId: form.patient_id
+        } 
+      });
     } catch (saveError) {
       setError(saveError.message || "Could not create appointment");
     } finally {

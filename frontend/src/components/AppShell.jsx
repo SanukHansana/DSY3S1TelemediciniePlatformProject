@@ -16,6 +16,8 @@ export default function AppShell({ children }) {
         <nav className="main-nav">
           <Link to="/">Appointments</Link>
           <Link to="/appointments/new">Create Appointment</Link>
+          <Link to="/payment">Make Payment</Link>
+          <Link to="/payment/status">Payment Status</Link>
         </nav>
       </header>
 

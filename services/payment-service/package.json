@@ -1,19 +1,30 @@
 {
   "name": "payment-service",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Payment service for telemedicine platform",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
   },
-  "keywords": [],
+  "keywords": [
+    "payment",
+    "microservices",
+    "telemedicine"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "mongoose": "^8.0.0",
+    "node-fetch": "^3.3.2",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
