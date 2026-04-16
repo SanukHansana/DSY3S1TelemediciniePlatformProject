@@ -1,32 +1,56 @@
 const User = require("../models/user.model");
 
-exports.getAllUsers = async (req, res, next) => {
+// GET ALL DOCTORS (pending or all)
+exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password -refreshToken");
-    res.json({ count: users.length, users });
+    const doctors = await User.find({ role: "doctor" }).select("-password");
+
+    res.json(doctors); // ✅ always returns array
   } catch (err) {
-    next(err);
+    res.status(500).json({ msg: err.message });
   }
 };
 
+// VERIFY DOCTOR
 exports.verifyDoctor = async (req, res) => {
-  const { id } = req.params;
-  const user = await User.findById(id);
+  try {
+    const { id } = req.params;
 
-  if (!user || user.role !== "doctor") {
-    return res.status(400).json({ msg: "Not a doctor" });
+    const doctor = await User.findById(id);
+
+    if (!doctor) {
+      return res.status(404).json({ msg: "Doctor not found" });
+    }
+
+    if (doctor.role !== "doctor") {
+      return res.status(400).json({ msg: "User is not a doctor" });
+    }
+
+    doctor.isVerified = true;
+    await doctor.save();
+
+    res.json({
+      msg: "Doctor verified successfully",
+      doctor,
+    });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
   }
-
-  user.isVerified = true;
-  await user.save();
-  res.json({ msg: "Doctor verified" });
 };
 
+// DELETE USER
 exports.deleteUser = async (req, res) => {
-  const { id } = req.params;
-  const deleted = await User.findByIdAndDelete(id);
+  try {
+    const { id } = req.params;
 
-  if (!deleted) return res.status(404).json({ msg: "User not found" });
+    const deleted = await User.findByIdAndDelete(id);
 
-  res.json({ msg: "User deleted" });
+    if (!deleted) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    res.json({ msg: "User deleted" });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
 };

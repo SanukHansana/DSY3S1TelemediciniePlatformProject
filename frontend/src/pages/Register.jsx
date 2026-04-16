@@ -9,12 +9,18 @@ export default function Register() {
     role: "patient",
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    await registerUser(form);
-    alert("Registered successfully");
-  };
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
+  try {
+    const res = await registerUser(form);
+    console.log("SUCCESS:", res.data);
+    alert("Registered successfully");
+  } catch (err) {
+    console.log("ERROR:", err.response?.data);   // 👈 VERY IMPORTANT
+    alert(err.response?.data?.msg || "Register failed");
+  }
+};
   return (
     <form onSubmit={handleSubmit}>
       <h2>Register</h2>

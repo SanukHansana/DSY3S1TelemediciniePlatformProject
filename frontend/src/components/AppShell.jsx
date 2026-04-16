@@ -14,6 +14,8 @@ export default function AppShell({ children }) {
         </div>
 
         <nav className="main-nav">
+          <Link to="/login">Login</Link>
+          <Link to="/register">Register</Link>
           <Link to="/">Appointments</Link>
           <Link to="/appointments/new">Create Appointment</Link>
           <Link to="/payment">Make Payment</Link>
@@ -22,6 +24,10 @@ export default function AppShell({ children }) {
       </header>
 
       <main className="page-content">{children}</main>
+
+      <footer className="app-footer">
+        <p>© 2026 Telemedicine Platform</p>
+      </footer>
     </div>
   );
 }
