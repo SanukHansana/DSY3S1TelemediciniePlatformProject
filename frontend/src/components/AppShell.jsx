@@ -6,7 +6,7 @@ export default function AppShell({ children }) {
       <header className="app-header">
         <div>
           <p className="eyebrow">DSY3S1 Telemedicine Platform</p>
-          <h1>Video consultations with appointment-based Jitsi rooms</h1>
+          <h1>E Channelling platform with video consultations</h1>
           <p className="app-subtitle">
             Create a video appointment, then join the consultation as the
             patient or the doctor from the appointment list.
