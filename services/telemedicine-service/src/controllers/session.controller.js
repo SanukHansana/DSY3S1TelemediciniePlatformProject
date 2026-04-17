@@ -11,6 +11,7 @@ import {
   fetchAppointmentById,
   updateAppointmentStatus
 } from "../services/appointmentClient.js";
+import { sendConsultationCompletedNotifications } from "../services/notificationClient.js";
 
 const allowedRoles = new Set(["patient", "doctor", "admin"]);
 
@@ -168,7 +169,11 @@ export const completeSession = async (req, res) => {
       participantName: participant.name
     });
 
-    await updateAppointmentStatus(session.appointmentId, "completed");
+    const appointment = await updateAppointmentStatus(session.appointmentId, "completed");
+
+    if (appointment) {
+      await sendConsultationCompletedNotifications({ appointment });
+    }
 
     return res.json({ session });
   } catch (error) {

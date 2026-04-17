@@ -9,6 +9,8 @@ services:
       - "5000:5000"
     env_file:
       - ./services/auth-service/.env
+    environment:
+      AUTH_SERVICE_API_KEY: auth-service-api-key-2024
 
   auth-db:
     image: mongo
@@ -25,11 +27,17 @@ services:
     env_file:
       - ./services/patient-service/.env
     environment:
+      AUTH_SERVICE_URL: http://auth-service:5000
+      AUTH_SERVICE_API_KEY: auth-service-api-key-2024
       APPOINTMENT_SERVICE_URL: http://appointment-service:4003
       DOCTOR_SERVICE_URL: http://doctor-service:4002
       TELEMEDICINE_SERVICE_URL: http://telemedicine-service:4004
+      NOTIFICATION_SERVICE_URL: http://notification-service:4006
+      NOTIFICATION_SERVICE_API_KEY: notification-service-api-key-2024
     depends_on:
       - patient-db
+      - auth-service
+      - notification-service
 
   patient-db:
     image: mongo
@@ -88,8 +96,14 @@ services:
       - ./services/telemedicine-service/.env
     depends_on:
       - appointment-service
+      - auth-service
+      - notification-service
     environment:
+      AUTH_SERVICE_URL: http://auth-service:5000
+      AUTH_SERVICE_API_KEY: auth-service-api-key-2024
       APPOINTMENT_SERVICE_URL: http://appointment-service:4003
+      NOTIFICATION_SERVICE_URL: http://notification-service:4006
+      NOTIFICATION_SERVICE_API_KEY: notification-service-api-key-2024
 
   # -------------------------
   # PAYMENT SERVICE

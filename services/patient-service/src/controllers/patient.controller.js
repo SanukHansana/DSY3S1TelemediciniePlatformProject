@@ -9,6 +9,7 @@ import {
   getDoctorSlots,
   getPrescriptionsForPatient
 } from "../lib/serviceClients.js";
+import { sendAppointmentBookedNotifications } from "../lib/notificationClient.js";
 import MedicalReport from "../models/medicalReport.model.js";
 import Patient from "../models/patient.model.js";
 
@@ -355,7 +356,7 @@ export const listMyAppointments = async (req, res) => {
 };
 
 export const createMyAppointment = async (req, res) => {
-  await ensurePatientProfile(req.user.id);
+  const patient = await ensurePatientProfile(req.user.id);
 
   if (!req.body.doctor_id) {
     return res
@@ -412,6 +413,12 @@ export const createMyAppointment = async (req, res) => {
   };
 
   const appointment = await createAppointment(payload);
+  await sendAppointmentBookedNotifications({
+    appointment,
+    patientProfile: patient,
+    doctorProfile: doctor
+  });
+
   return res.status(201).json(appointment);
 };
 

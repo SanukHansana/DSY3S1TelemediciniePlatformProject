@@ -1,7 +1,37 @@
 import Notification from '../models/Notification.js';
 import NotificationTemplate from '../models/NotificationTemplate.js';
-import { processTemplate } from '../services/templateService.js';
+import { getDefaultTemplate, processTemplate } from '../services/templateService.js';
 import { sendEmail, sendSMS } from '../services/notificationService.js';
+
+const getFirstValue = (payload, paths) => {
+  for (const path of paths) {
+    const value = path
+      .split('.')
+      .reduce((current, key) => current?.[key], payload);
+
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return '';
+};
+
+const resolveRecipientEmail = (payload) =>
+  getFirstValue(payload, [
+    'email',
+    'recipient.email',
+    'patient.email',
+    'doctor.email'
+  ]);
+
+const resolveRecipientPhone = (payload) =>
+  getFirstValue(payload, [
+    'phone',
+    'recipient.phone',
+    'patient.phone',
+    'doctor.phone'
+  ]);
 
 const sendNotification = async (req, res) => {
   try {
@@ -18,7 +48,7 @@ const sendNotification = async (req, res) => {
       eventType,
       channel,
       isActive: true
-    });
+    }) || getDefaultTemplate(eventType, channel);
 
     if (!template) {
       return res.status(404).json({
@@ -48,9 +78,9 @@ const sendNotification = async (req, res) => {
 
     let result;
     if (channel === 'EMAIL') {
-      result = await sendEmail(payload?.email, subject, body);
+      result = await sendEmail(resolveRecipientEmail(payload), subject, body);
     } else if (channel === 'SMS') {
-      result = await sendSMS(payload?.phone, body);
+      result = await sendSMS(resolveRecipientPhone(payload), body);
     } else {
       result = {
         success: false,

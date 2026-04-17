@@ -32,6 +32,11 @@ spec:
                 secretKeyRef:
                   name: telemedicine-secrets
                   key: AUTH_JWT_SECRET
+            - name: AUTH_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_SERVICE_API_KEY
           readinessProbe:
             tcpSocket:
               port: 5000
@@ -125,6 +130,20 @@ spec:
               value: "http://doctor-service:4002"
             - name: TELEMEDICINE_SERVICE_URL
               value: "http://telemedicine-service:4004"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:5000"
+            - name: AUTH_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_SERVICE_API_KEY
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:4006"
+            - name: NOTIFICATION_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: NOTIFICATION_SERVICE_API_KEY
           readinessProbe:
             httpGet:
               path: /health
@@ -226,6 +245,20 @@ spec:
                 secretKeyRef:
                   name: telemedicine-secrets
                   key: TELEMEDICINE_MONGODB_URI
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:5000"
+            - name: AUTH_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_SERVICE_API_KEY
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:4006"
+            - name: NOTIFICATION_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: NOTIFICATION_SERVICE_API_KEY
           readinessProbe:
             httpGet:
               path: /
@@ -280,6 +313,21 @@ spec:
                 secretKeyRef:
                   name: telemedicine-secrets
                   key: NOTIFICATION_SERVICE_API_KEY
+            - name: BREVO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: BREVO_API_KEY
+            - name: BREVO_SENDER_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: BREVO_SENDER_EMAIL
+            - name: BREVO_SENDER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: BREVO_SENDER_NAME
           readinessProbe:
             httpGet:
               path: /health

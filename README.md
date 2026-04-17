@@ -19,8 +19,8 @@ Video consultations use Jitsi Meet. The notification service uses third-party pr
 
 ```text
 Notification Service
-|-- Email: Brevo API
-`-- SMS: Twilio trial
+    Email: Brevo API
+`   SMS: Twilio trial
 ```
 
 ## How To Install Dependencies
@@ -199,6 +199,7 @@ Create `.env` files inside the relevant service folders. Use your own database c
 PORT=5000
 MONGO_URI=your_auth_database_uri
 JWT_SECRET=your_jwt_secret
+AUTH_SERVICE_API_KEY=auth-service-api-key-2024
 ```
 
 ### Patient Service
@@ -207,9 +208,13 @@ JWT_SECRET=your_jwt_secret
 PORT=4001
 MONGODB_URI=your_patient_database_uri
 AUTH_JWT_SECRET=your_jwt_secret
+AUTH_SERVICE_URL=http://localhost:5000
+AUTH_SERVICE_API_KEY=auth-service-api-key-2024
 APPOINTMENT_SERVICE_URL=http://localhost:4003
 DOCTOR_SERVICE_URL=http://localhost:4002
 TELEMEDICINE_SERVICE_URL=http://localhost:4004
+NOTIFICATION_SERVICE_URL=http://localhost:4006
+NOTIFICATION_SERVICE_API_KEY=notification-service-api-key-2024
 ```
 
 ### Doctor Service
@@ -235,7 +240,11 @@ MONGO_URI=your_appointment_database_uri
 ```env
 PORT=4004
 MONGODB_URI=your_telemedicine_database_uri
+AUTH_SERVICE_URL=http://localhost:5000
+AUTH_SERVICE_API_KEY=auth-service-api-key-2024
 APPOINTMENT_SERVICE_URL=http://localhost:4003
+NOTIFICATION_SERVICE_URL=http://localhost:4006
+NOTIFICATION_SERVICE_API_KEY=notification-service-api-key-2024
 VIDEO_PROVIDER=jitsi
 JITSI_DOMAIN=meet.jit.si
 ```
@@ -260,7 +269,8 @@ NODE_ENV=development
 MONGODB_URI=your_notification_database_uri
 SERVICE_API_KEY=notification-service-api-key-2024
 BREVO_API_KEY=your_brevo_api_key
-BREVO_SENDER_EMAIL=your_sender_email
+BREVO_SENDER_EMAIL=year3semester1project@gmail.com
+BREVO_SENDER_NAME=Telemedicine Platform
 TWILIO_ACCOUNT_SID=your_twilio_account_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
 TWILIO_PHONE_NUMBER=your_twilio_trial_phone_number

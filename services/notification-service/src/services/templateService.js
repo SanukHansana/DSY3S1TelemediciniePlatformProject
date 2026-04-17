@@ -1,3 +1,25 @@
+const defaultTemplates = {
+  EMAIL: {
+    APPOINTMENT_BOOKED: {
+      eventType: 'APPOINTMENT_BOOKED',
+      channel: 'EMAIL',
+      subject: 'Appointment booked successfully',
+      bodyTemplate:
+        'Hello {{recipientName}},\n\nYour appointment has been booked successfully.\n\nPatient: {{patientName}}\nDoctor: {{doctorName}}\nDate: {{appointmentDate}}\nTime: {{appointmentTime}}\nAppointment ID: {{appointmentId}}\n\nThank you,\nTelemedicine Platform'
+    },
+    CONSULTATION_COMPLETED: {
+      eventType: 'CONSULTATION_COMPLETED',
+      channel: 'EMAIL',
+      subject: 'Consultation completed successfully',
+      bodyTemplate:
+        'Hello {{recipientName}},\n\nThe consultation has been completed successfully.\n\nPatient: {{patientName}}\nDoctor: {{doctorName}}\nDate: {{appointmentDate}}\nTime: {{appointmentTime}}\nAppointment ID: {{appointmentId}}\n\nThank you,\nTelemedicine Platform'
+    }
+  }
+};
+
+export const getDefaultTemplate = (eventType, channel) =>
+  defaultTemplates[channel]?.[eventType] || null;
+
 export const processTemplate = (template, payload) => {
   let { subject, bodyTemplate } = template;
   
