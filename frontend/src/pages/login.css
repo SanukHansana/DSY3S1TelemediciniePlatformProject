@@ -1,0 +1,132 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  background: linear-gradient(180deg, #f9f6f0, #eef3f1);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+/* soft glow background */
+.login-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(18,120,94,0.18), transparent 55%);
+  z-index: 0;
+}
+
+.login-container {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  z-index: 1;
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d9e5de;
+  border-radius: 18px;
+  padding: 2rem;
+
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.login-header h2 {
+  font-size: 1.8rem;
+  color: #152f28;
+  margin: 0;
+}
+
+.login-header p {
+  font-size: 0.9rem;
+  color: #61756d;
+  margin-top: 0.4rem;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.login-field label {
+  font-size: 0.9rem;
+  color: #61756d;
+  margin-bottom: 0.3rem;
+}
+
+.login-field input {
+  padding: 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #d9e5de;
+  outline: none;
+  background: #fff;
+  transition: 0.2s;
+}
+
+.login-field input:focus {
+  border-color: #12785e;
+}
+
+.login-button {
+  width: 100%;
+  padding: 0.9rem;
+  background: #12785e;
+  color: white;
+
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+
+  font-weight: 600;
+  margin-top: 0.5rem;
+  transition: 0.2s;
+}
+
+.login-button:hover {
+  opacity: 0.9;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  color: #61756d;
+  font-size: 0.85rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #d9e5de;
+}
+
+.login-divider span {
+  padding: 0 10px;
+}
+
+.login-footer {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #61756d;
+}
+
+.login-footer span {
+  color: #12785e;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.login-footer span:hover {
+  text-decoration: underline;
+}
