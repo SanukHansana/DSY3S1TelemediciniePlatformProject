@@ -3,6 +3,8 @@ import { Router } from "express";
 import {
   createAvailabilitySlot,
   createConsultationSession,
+  createPrescriptionSignatureRequest,
+  deleteAppointmentRequest,
   getAdminOverview,
   getDoctorByPublicId,
   getDoctorSlots,
@@ -17,9 +19,13 @@ import {
   listPublicDoctors,
   updateAppointmentRequest,
   updateAvailabilitySlot,
+  updatePrescription,
   updateDoctorVerification,
   updateMyProfile,
-  deleteAvailabilitySlot
+  deleteAvailabilitySlot,
+  deletePrescription,
+  downloadSignedPrescription,
+  refreshPrescriptionSignatureStatus
 } from "../controllers/doctor.controller.js";
 import { authenticate, authorize } from "../middleware/auth.js";
 
@@ -77,6 +83,12 @@ router.patch(
   authorize("doctor"),
   updateAppointmentRequest
 );
+router.delete(
+  "/appointments/:appointmentId",
+  authenticate,
+  authorize("doctor"),
+  deleteAppointmentRequest
+);
 router.post(
   "/appointments/:appointmentId/session",
   authenticate,
@@ -94,6 +106,36 @@ router.get(
   authenticate,
   authorize("doctor"),
   listMyPrescriptions
+);
+router.put(
+  "/prescriptions/:prescriptionId",
+  authenticate,
+  authorize("doctor"),
+  updatePrescription
+);
+router.post(
+  "/prescriptions/:prescriptionId/signature-request",
+  authenticate,
+  authorize("doctor"),
+  createPrescriptionSignatureRequest
+);
+router.post(
+  "/prescriptions/:prescriptionId/signature-status",
+  authenticate,
+  authorize("patient", "doctor", "admin"),
+  refreshPrescriptionSignatureStatus
+);
+router.get(
+  "/prescriptions/:prescriptionId/signed-pdf",
+  authenticate,
+  authorize("patient", "doctor", "admin"),
+  downloadSignedPrescription
+);
+router.delete(
+  "/prescriptions/:prescriptionId",
+  authenticate,
+  authorize("doctor"),
+  deletePrescription
 );
 router.get(
   "/prescriptions/patient/:patientId",

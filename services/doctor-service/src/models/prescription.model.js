@@ -27,6 +27,48 @@ const medicationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const signatureSchema = new mongoose.Schema(
+  {
+    provider: {
+      type: String,
+      default: null
+    },
+    document_id: {
+      type: String,
+      default: ""
+    },
+    status: {
+      type: String,
+      default: "not_sent"
+    },
+    signer_email: {
+      type: String,
+      default: ""
+    },
+    signer_name: {
+      type: String,
+      default: ""
+    },
+    file_name: {
+      type: String,
+      default: ""
+    },
+    sent_at: {
+      type: Date,
+      default: null
+    },
+    completed_at: {
+      type: Date,
+      default: null
+    },
+    last_checked_at: {
+      type: Date,
+      default: null
+    }
+  },
+  { _id: false }
+);
+
 const prescriptionSchema = new mongoose.Schema(
   {
     _id: {
@@ -61,6 +103,10 @@ const prescriptionSchema = new mongoose.Schema(
     follow_up_date: {
       type: Date,
       default: null
+    },
+    signature: {
+      type: signatureSchema,
+      default: () => ({})
     },
     issued_at: {
       type: Date,

@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiRequest, downloadFile } from "./apiClient";
 
 const API = "/api/doctors";
 
@@ -50,12 +50,51 @@ export const updateDoctorAppointmentStatus = (token, appointmentId, payload) =>
     body: payload
   });
 
+export const deleteDoctorAppointment = (token, appointmentId) =>
+  apiRequest(`${API}/appointments/${appointmentId}`, {
+    method: "DELETE",
+    token
+  });
+
 export const createDoctorPrescription = (token, payload) =>
   apiRequest(`${API}/prescriptions`, {
     method: "POST",
     token,
     body: payload
   });
+
+export const updateDoctorPrescription = (token, prescriptionId, payload) =>
+  apiRequest(`${API}/prescriptions/${prescriptionId}`, {
+    method: "PUT",
+    token,
+    body: payload
+  });
+
+export const deleteDoctorPrescription = (token, prescriptionId) =>
+  apiRequest(`${API}/prescriptions/${prescriptionId}`, {
+    method: "DELETE",
+    token
+  });
+
+export const requestDoctorPrescriptionSignature = (
+  token,
+  prescriptionId,
+  payload
+) =>
+  apiRequest(`${API}/prescriptions/${prescriptionId}/signature-request`, {
+    method: "POST",
+    token,
+    body: payload
+  });
+
+export const refreshPrescriptionSignatureStatus = (token, prescriptionId) =>
+  apiRequest(`${API}/prescriptions/${prescriptionId}/signature-status`, {
+    method: "POST",
+    token
+  });
+
+export const downloadSignedPrescriptionPdf = (token, prescriptionId) =>
+  downloadFile(`${API}/prescriptions/${prescriptionId}/signed-pdf`, token);
 
 export const getMyDoctorPrescriptions = (token) =>
   apiRequest(`${API}/me/prescriptions`, { token });

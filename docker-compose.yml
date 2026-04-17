@@ -55,11 +55,16 @@ services:
     env_file:
       - ./services/doctor-service/.env
     environment:
+      AUTH_SERVICE_URL: http://auth-service:5000
+      AUTH_SERVICE_API_KEY: auth-service-api-key-2024
       APPOINTMENT_SERVICE_URL: http://appointment-service:4003
       PATIENT_SERVICE_URL: http://patient-service:4001
       TELEMEDICINE_SERVICE_URL: http://telemedicine-service:4004
+      BOLDSIGN_API_BASE_URL: https://api.boldsign.com
+      BOLDSIGN_DISABLE_EMAILS: "true"
     depends_on:
       - doctor-db
+      - auth-service
 
   doctor-db:
     image: mongo
@@ -114,7 +119,10 @@ services:
       - "4005:4005"
     env_file:
       - ./services/payment-service/.env
+    environment:
+      APPOINTMENT_SERVICE_URL: http://appointment-service:4003
     depends_on:
+      - appointment-service
       - payment-db
 
   payment-db:

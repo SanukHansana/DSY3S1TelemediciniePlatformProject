@@ -4,6 +4,12 @@ const PATIENT_SERVICE_URL =
   process.env.PATIENT_SERVICE_URL || "http://localhost:4001";
 const TELEMEDICINE_SERVICE_URL =
   process.env.TELEMEDICINE_SERVICE_URL || "http://localhost:4004";
+const AUTH_SERVICE_URL =
+  process.env.AUTH_SERVICE_URL || "http://localhost:5000";
+const AUTH_SERVICE_API_KEY =
+  process.env.AUTH_SERVICE_API_KEY || "auth-service-api-key-2024";
+
+const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
 const parseBody = async (response) => {
   const text = await response.text();
@@ -50,6 +56,11 @@ export const updateAppointment = async (appointmentId, payload) =>
     body: JSON.stringify(payload)
   });
 
+export const deleteAppointment = async (appointmentId) =>
+  requestJson(`${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}`, {
+    method: "DELETE"
+  });
+
 export const getPatientReports = async (patientId, authHeader) =>
   requestJson(`${PATIENT_SERVICE_URL}/api/patients/${patientId}/reports`, {
     headers: authHeader
@@ -58,6 +69,18 @@ export const getPatientReports = async (patientId, authHeader) =>
         }
       : {}
   });
+
+export const getAuthUserById = async (userId) => {
+  if (!objectIdPattern.test(String(userId || ""))) {
+    return null;
+  }
+
+  return requestJson(`${AUTH_SERVICE_URL}/auth/users/${userId}`, {
+    headers: {
+      "x-service-api-key": AUTH_SERVICE_API_KEY
+    }
+  });
+};
 
 export const createOrGetSession = async (appointmentId, payload) =>
   requestJson(

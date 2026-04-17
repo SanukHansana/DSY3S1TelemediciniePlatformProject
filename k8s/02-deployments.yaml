@@ -197,6 +197,22 @@ spec:
               value: "http://patient-service:4001"
             - name: TELEMEDICINE_SERVICE_URL
               value: "http://telemedicine-service:4004"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:5000"
+            - name: AUTH_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_SERVICE_API_KEY
+            - name: BOLDSIGN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: BOLDSIGN_API_KEY
+            - name: BOLDSIGN_API_BASE_URL
+              value: "https://api.boldsign.com"
+            - name: BOLDSIGN_DISABLE_EMAILS
+              value: "true"
           readinessProbe:
             httpGet:
               path: /health
@@ -384,6 +400,8 @@ spec:
                 secretKeyRef:
                   name: telemedicine-secrets
                   key: NOTIFICATION_SERVICE_API_KEY
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:4003"
           readinessProbe:
             httpGet:
               path: /health

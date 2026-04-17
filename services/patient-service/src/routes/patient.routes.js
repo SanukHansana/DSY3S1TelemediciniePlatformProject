@@ -3,6 +3,8 @@ import express, { Router } from "express";
 import {
   createConsultationSession,
   createMyAppointment,
+  deleteMyAppointment,
+  deleteMyReport,
   downloadReportFile,
   getAdminOverview,
   getMyMedicalHistory,
@@ -13,7 +15,9 @@ import {
   listMyPrescriptions,
   listMyReports,
   listPatientReports,
+  updateMyAppointment,
   updateMyProfile,
+  updateMyReport,
   uploadReport
 } from "../controllers/patient.controller.js";
 import { authenticate, authorize } from "../middleware/auth.js";
@@ -46,6 +50,18 @@ router.get(
   authorize("patient"),
   listMyReports
 );
+router.put(
+  "/me/reports/:reportId",
+  authenticate,
+  authorize("patient"),
+  updateMyReport
+);
+router.delete(
+  "/me/reports/:reportId",
+  authenticate,
+  authorize("patient"),
+  deleteMyReport
+);
 router.get(
   "/me/appointments",
   authenticate,
@@ -57,6 +73,18 @@ router.post(
   authenticate,
   authorize("patient"),
   createMyAppointment
+);
+router.put(
+  "/me/appointments/:appointmentId",
+  authenticate,
+  authorize("patient"),
+  updateMyAppointment
+);
+router.delete(
+  "/me/appointments/:appointmentId",
+  authenticate,
+  authorize("patient"),
+  deleteMyAppointment
 );
 router.get(
   "/me/prescriptions",

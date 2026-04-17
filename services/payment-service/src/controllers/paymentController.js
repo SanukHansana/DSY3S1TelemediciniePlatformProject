@@ -5,6 +5,7 @@ import {
   sendPaymentSuccessNotification, 
   sendPaymentFailedNotification 
 } from '../services/notificationClient.js';
+import { updateAppointmentStatus } from '../services/appointmentClient.js';
 
 const initiatePaymentController = async (req, res) => {
   try {
@@ -150,8 +151,10 @@ const initiatePaymentController = async (req, res) => {
 
     // Send notifications based on payment status
     if (payment.status === 'SUCCESS') {
+      await updateAppointmentStatus(payment.appointmentId, 'scheduled');
       await sendPaymentSuccessNotification(payment);
     } else if (payment.status === 'FAILED') {
+      await updateAppointmentStatus(payment.appointmentId, 'payment_failed');
       await sendPaymentFailedNotification(payment);
     }
 
@@ -265,6 +268,12 @@ const updatePaymentStatus = async (req, res) => {
     }
 
     await payment.save();
+
+    if (status === 'SUCCESS') {
+      await updateAppointmentStatus(payment.appointmentId, 'scheduled');
+    } else if (status === 'FAILED') {
+      await updateAppointmentStatus(payment.appointmentId, 'payment_failed');
+    }
 
     // Simulate webhook notification
     simulateWebhook({

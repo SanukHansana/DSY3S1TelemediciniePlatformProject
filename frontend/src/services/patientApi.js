@@ -59,6 +59,19 @@ export const uploadPatientReport = async (token, payload) => {
 export const downloadPatientReport = (token, reportId) =>
   downloadFile(`${API}/reports/${reportId}/file`, token);
 
+export const updatePatientReport = (token, reportId, payload) =>
+  apiRequest(`${API}/me/reports/${reportId}`, {
+    method: "PUT",
+    token,
+    body: payload
+  });
+
+export const deletePatientReport = (token, reportId) =>
+  apiRequest(`${API}/me/reports/${reportId}`, {
+    method: "DELETE",
+    token
+  });
+
 export const getMyPatientAppointments = (token) =>
   apiRequest(`${API}/me/appointments`, { token });
 
@@ -67,6 +80,19 @@ export const createPatientAppointment = (token, payload) =>
     method: "POST",
     token,
     body: payload
+  });
+
+export const updatePatientAppointment = (token, appointmentId, payload) =>
+  apiRequest(`${API}/me/appointments/${appointmentId}`, {
+    method: "PUT",
+    token,
+    body: payload
+  });
+
+export const deletePatientAppointment = (token, appointmentId) =>
+  apiRequest(`${API}/me/appointments/${appointmentId}`, {
+    method: "DELETE",
+    token
   });
 
 export const getMyPatientPrescriptions = (token) =>

@@ -50,6 +50,20 @@ export const createAppointment = async (payload) =>
     body: JSON.stringify(payload)
   });
 
+export const updateAppointment = async (appointmentId, payload) =>
+  requestJson(`${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+export const deleteAppointment = async (appointmentId) =>
+  requestJson(`${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}`, {
+    method: "DELETE"
+  });
+
 export const getDoctorById = async (doctorId) =>
   requestJson(`${DOCTOR_SERVICE_URL}/api/doctors/${doctorId}`);
 

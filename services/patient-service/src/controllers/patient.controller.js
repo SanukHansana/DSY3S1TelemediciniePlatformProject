@@ -3,13 +3,14 @@ import crypto from "crypto";
 import {
   createAppointment,
   createOrGetSession,
+  deleteAppointment,
   getAppointmentById,
   getAppointments,
   getDoctorById,
   getDoctorSlots,
-  getPrescriptionsForPatient
+  getPrescriptionsForPatient,
+  updateAppointment
 } from "../lib/serviceClients.js";
-import { sendAppointmentBookedNotifications } from "../lib/notificationClient.js";
 import MedicalReport from "../models/medicalReport.model.js";
 import Patient from "../models/patient.model.js";
 
@@ -179,6 +180,8 @@ const canAccessPatient = (req, patientId) =>
   req.user.role === "doctor" ||
   req.user.id === patientId;
 
+const lockedAppointmentStatuses = new Set(["in-consultation", "completed"]);
+
 const toPatient = (patient) => {
   const { __v, ...rest } = patient;
 
@@ -301,6 +304,64 @@ export const listMyReports = async (req, res) => {
   return res.json(reports.map(toReport));
 };
 
+export const updateMyReport = async (req, res) => {
+  await ensurePatientProfile(req.user.id);
+
+  const updates = {};
+
+  if (Object.hasOwn(req.body, "title")) {
+    const title = String(req.body.title || "").trim();
+
+    if (!title) {
+      return res.status(400).json({ message: "title is required" });
+    }
+
+    updates.title = title;
+  }
+
+  if (Object.hasOwn(req.body, "category")) {
+    updates.category = req.body.category || "general";
+  }
+
+  if (Object.hasOwn(req.body, "description")) {
+    updates.description = req.body.description || "";
+  }
+
+  const report = await MedicalReport.findOneAndUpdate(
+    {
+      _id: req.params.reportId,
+      patient_id: req.user.id
+    },
+    {
+      $set: updates
+    },
+    {
+      new: true
+    }
+  ).lean();
+
+  if (!report) {
+    return res.status(404).json({ message: "Report not found" });
+  }
+
+  return res.json(toReport(report));
+};
+
+export const deleteMyReport = async (req, res) => {
+  await ensurePatientProfile(req.user.id);
+
+  const deleted = await MedicalReport.findOneAndDelete({
+    _id: req.params.reportId,
+    patient_id: req.user.id
+  }).lean();
+
+  if (!deleted) {
+    return res.status(404).json({ message: "Report not found" });
+  }
+
+  return res.json({ message: "Report deleted" });
+};
+
 export const listPatientReports = async (req, res) => {
   const { patientId } = req.params;
 
@@ -356,7 +417,7 @@ export const listMyAppointments = async (req, res) => {
 };
 
 export const createMyAppointment = async (req, res) => {
-  const patient = await ensurePatientProfile(req.user.id);
+  await ensurePatientProfile(req.user.id);
 
   if (!req.body.doctor_id) {
     return res
@@ -405,7 +466,7 @@ export const createMyAppointment = async (req, res) => {
     patient_id: req.user.id,
     doctor_id: req.body.doctor_id,
     slot_id: validatedSlot?._id || null,
-    status: "scheduled",
+    status: "pending_payment",
     appointment_type: req.body.appointment_type || "video",
     patient_notes: req.body.patient_notes || "",
     fee_amount: resolveFeeAmount(req.body.fee_amount, doctor?.consultation_fee),
@@ -413,13 +474,122 @@ export const createMyAppointment = async (req, res) => {
   };
 
   const appointment = await createAppointment(payload);
-  await sendAppointmentBookedNotifications({
-    appointment,
-    patientProfile: patient,
-    doctorProfile: doctor
-  });
-
   return res.status(201).json(appointment);
+};
+
+export const updateMyAppointment = async (req, res) => {
+  await ensurePatientProfile(req.user.id);
+
+  const appointment = await getAppointmentById(req.params.appointmentId);
+
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found" });
+  }
+
+  if (appointment.patient_id !== req.user.id) {
+    return res.status(403).json({
+      message: "You can only update your own appointments"
+    });
+  }
+
+  if (lockedAppointmentStatuses.has(appointment.status)) {
+    return res.status(400).json({
+      message: "This appointment can no longer be updated"
+    });
+  }
+
+  if (
+    Object.hasOwn(req.body, "doctor_id") &&
+    req.body.doctor_id &&
+    req.body.doctor_id !== appointment.doctor_id
+  ) {
+    return res.status(400).json({
+      message: "Create a new appointment to change the doctor"
+    });
+  }
+
+  const updates = {
+    patient_id: req.user.id,
+    doctor_id: appointment.doctor_id,
+    slot_id: appointment.slot_id || null,
+    status: appointment.status || "scheduled",
+    appointment_type: appointment.appointment_type || "video",
+    patient_notes: appointment.patient_notes || "",
+    doctor_notes: appointment.doctor_notes || "",
+    fee_amount: appointment.fee_amount,
+    scheduled_at: appointment.scheduled_at
+  };
+
+  if (Object.hasOwn(req.body, "slot_id")) {
+    if (req.body.slot_id) {
+      let validatedSlot = null;
+
+      try {
+        const doctorSlots = await getDoctorSlots(appointment.doctor_id);
+        validatedSlot = Array.isArray(doctorSlots)
+          ? doctorSlots.find((slot) => slot._id === req.body.slot_id)
+          : null;
+      } catch (error) {
+        return res.status(400).json({
+          message: "Could not validate the selected doctor slot"
+        });
+      }
+
+      if (!validatedSlot || !isBookablePublicSlot(validatedSlot)) {
+        return res.status(400).json({
+          message: "Selected doctor slot is not available"
+        });
+      }
+
+      updates.slot_id = validatedSlot._id;
+    } else {
+      updates.slot_id = null;
+    }
+  }
+
+  if (Object.hasOwn(req.body, "scheduled_at")) {
+    if (!req.body.scheduled_at) {
+      return res.status(400).json({ message: "scheduled_at is required" });
+    }
+
+    updates.scheduled_at = req.body.scheduled_at;
+  }
+
+  if (Object.hasOwn(req.body, "appointment_type")) {
+    updates.appointment_type = req.body.appointment_type || "video";
+  }
+
+  if (Object.hasOwn(req.body, "patient_notes")) {
+    updates.patient_notes = req.body.patient_notes || "";
+  }
+
+  const updated = await updateAppointment(req.params.appointmentId, updates);
+  return res.json(updated);
+};
+
+export const deleteMyAppointment = async (req, res) => {
+  await ensurePatientProfile(req.user.id);
+
+  const appointment = await getAppointmentById(req.params.appointmentId);
+
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found" });
+  }
+
+  if (appointment.patient_id !== req.user.id) {
+    return res.status(403).json({
+      message: "You can only delete your own appointments"
+    });
+  }
+
+  if (lockedAppointmentStatuses.has(appointment.status)) {
+    return res.status(400).json({
+      message: "This appointment can no longer be deleted"
+    });
+  }
+
+  await deleteAppointment(req.params.appointmentId);
+  return res.json({ message: "Appointment deleted" });
 };
 
 export const listMyPrescriptions = async (req, res) => {

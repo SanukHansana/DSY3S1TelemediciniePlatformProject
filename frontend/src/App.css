@@ -453,6 +453,11 @@ textarea {
   color: #115b49;
 }
 
+.danger-button {
+  background: #fff1f1;
+  color: #9f1d1d;
+}
+
 .inline-button {
   width: fit-content;
 }
@@ -664,7 +669,7 @@ textarea {
 
 .med-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.75rem;
 }
 

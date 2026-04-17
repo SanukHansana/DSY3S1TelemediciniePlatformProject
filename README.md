@@ -20,7 +20,15 @@ Video consultations use Jitsi Meet. The notification service uses third-party pr
 ```text
 Notification Service
     Email: Brevo API
-`   SMS: Twilio trial
+    SMS: Twilio trial
+```
+
+Prescription digital signing uses BoldSign:
+
+```text
+Digital Prescription Signature
+    Provider: BoldSign API
+    Usage: Doctor signs generated prescription PDFs through BoldSign
 ```
 
 ## How To Install Dependencies
@@ -226,7 +234,12 @@ AUTH_JWT_SECRET=your_jwt_secret
 APPOINTMENT_SERVICE_URL=http://localhost:4003
 PATIENT_SERVICE_URL=http://localhost:4001
 TELEMEDICINE_SERVICE_URL=http://localhost:4004
+BOLDSIGN_API_KEY=your_boldsign_api_key
+BOLDSIGN_API_BASE_URL=https://api.boldsign.com
+BOLDSIGN_DISABLE_EMAILS=true
 ```
+
+For Kubernetes, also set `BOLDSIGN_API_KEY` in `k8s/01-secrets.yaml`, then apply the manifests and restart the doctor service.
 
 ### Appointment Service
 
@@ -310,6 +323,8 @@ NOTIFICATION_SERVICE_URL=http://localhost:4006
 5. As a doctor, view appointment/consultation details from the doctor dashboard.
 6. Join a consultation to test the Jitsi video session flow.
 7. Complete payment-related actions to test payment and notification flows.
+8. As a doctor, issue a prescription, then use `Send to BoldSign` from the prescriptions tab.
+9. Sign the prescription through BoldSign, refresh the signature status, then download the signed PDF as doctor or patient.
 
 ### Test Accounts
 

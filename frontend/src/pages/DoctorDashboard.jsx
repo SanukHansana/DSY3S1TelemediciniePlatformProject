@@ -5,17 +5,24 @@ import { AuthContext } from "../context/AuthContext";
 import {
   createDoctorAvailability,
   createDoctorPrescription,
+  deleteDoctorAppointment,
   deleteDoctorAvailability,
+  deleteDoctorPrescription,
+  downloadSignedPrescriptionPdf,
   getMyDoctorAppointments,
   getMyDoctorAvailability,
   getMyDoctorPrescriptions,
   getMyDoctorProfile,
   getPatientReportsForDoctor,
+  refreshPrescriptionSignatureStatus,
+  requestDoctorPrescriptionSignature,
   updateDoctorAppointmentStatus,
   updateDoctorAvailability,
+  updateDoctorPrescription,
   updateMyDoctorProfile
 } from "../services/doctorApi";
 import { downloadPatientReport } from "../services/patientApi";
+import { createPrescriptionPdfPayload } from "../utils/prescriptionPdf";
 
 const doctorTabs = [
   {
@@ -71,7 +78,15 @@ const emptyPrescription = {
   diagnosis: "",
   notes: "",
   follow_up_date: "",
-  medications: [{ medication_name: "", dosage: "", frequency: "", duration: "" }]
+  medications: [
+    {
+      medication_name: "",
+      dosage: "",
+      frequency: "",
+      duration: "",
+      instructions: ""
+    }
+  ]
 };
 
 const toCsv = (value) => (Array.isArray(value) ? value.join(", ") : "");
@@ -85,8 +100,54 @@ const fromCsv = (value) =>
 const formatDateTime = (value) =>
   value ? new Date(value).toLocaleString() : "Not set";
 
+const formatDateInput = (value) =>
+  value ? String(value).slice(0, 10) : "";
+
+const formatSignatureStatus = (signature = {}) => {
+  const status = signature.status || "not_sent";
+
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
+const getPatientLabel = (patient = {}) => {
+  const email = String(patient.email || "").trim();
+  const name = String(patient.name || "").trim();
+
+  if (email && name) {
+    return `${email} - ${name}`;
+  }
+
+  return email || name || patient._id || "Unknown patient";
+};
+
+const getAppointmentPatientLabel = (appointment) =>
+  getPatientLabel({
+    _id: appointment.patient_id,
+    ...(appointment.patient || {})
+  });
+
 const resolveTab = (value) =>
   doctorTabs.some((tab) => tab.key === value) ? value : "profile";
+
+const mapPrescriptionToForm = (prescription = {}) => ({
+  appointment_id: prescription.appointment_id || "",
+  diagnosis: prescription.diagnosis || "",
+  notes: prescription.notes || "",
+  follow_up_date: formatDateInput(prescription.follow_up_date),
+  medications:
+    Array.isArray(prescription.medications) && prescription.medications.length
+      ? prescription.medications.map((item) => ({
+          medication_name: item.medication_name || "",
+          dosage: item.dosage || "",
+          frequency: item.frequency || "",
+          duration: item.duration || "",
+          instructions: item.instructions || ""
+        }))
+      : emptyPrescription.medications
+});
 
 const saveDownload = ({ blob, fileName }) => {
   const url = URL.createObjectURL(blob);
@@ -112,15 +173,45 @@ export default function DoctorDashboard() {
   const [prescriptions, setPrescriptions] = useState([]);
   const [slotForm, setSlotForm] = useState(emptySlot);
   const [prescriptionForm, setPrescriptionForm] = useState(emptyPrescription);
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState("");
   const [selectedPatient, setSelectedPatient] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingSlot, setSavingSlot] = useState(false);
   const [issuingPrescription, setIssuingPrescription] = useState(false);
+  const [signingPrescriptionId, setSigningPrescriptionId] = useState("");
+  const [refreshingSignatureId, setRefreshingSignatureId] = useState("");
+  const [downloadingSignedId, setDownloadingSignedId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const selectedPrescriptionAppointment = appointments.find(
     (appointment) => appointment._id === prescriptionForm.appointment_id
+  );
+  const appointmentPatients = Array.from(
+    appointments
+      .reduce((map, appointment) => {
+        if (!appointment.patient_id) {
+          return map;
+        }
+
+        const patient = {
+          _id: appointment.patient_id,
+          ...(appointment.patient || {})
+        };
+        const current = map.get(patient._id);
+
+        if (!current || (!current.email && patient.email)) {
+          map.set(patient._id, patient);
+        }
+
+        return map;
+      }, new Map())
+      .values()
+  ).sort((first, second) =>
+    getPatientLabel(first).localeCompare(getPatientLabel(second))
+  );
+  const selectedPatientDetails = appointmentPatients.find(
+    (patient) => patient._id === selectedPatient
   );
 
   const setActiveTab = (tabKey) => {
@@ -274,6 +365,23 @@ export default function DoctorDashboard() {
     }
   };
 
+  const handleAppointmentDelete = async (appointmentId) => {
+    if (!window.confirm("Delete this appointment?")) {
+      return;
+    }
+
+    try {
+      setMessage("");
+      setError("");
+      await deleteDoctorAppointment(token, appointmentId);
+      await loadDashboard();
+      setMessage("Appointment deleted.");
+      setActiveTab("appointments");
+    } catch (deleteError) {
+      setError(deleteError.message || "Could not delete appointment");
+    }
+  };
+
   const handleLoadReports = async (patientId) => {
     try {
       setSelectedPatient(patientId);
@@ -310,7 +418,7 @@ export default function DoctorDashboard() {
       setIssuingPrescription(true);
       setMessage("");
       setError("");
-      await createDoctorPrescription(token, {
+      const payload = {
         appointment_id: prescriptionForm.appointment_id || null,
         diagnosis: prescriptionForm.diagnosis,
         notes: prescriptionForm.notes,
@@ -318,15 +426,142 @@ export default function DoctorDashboard() {
         medications: prescriptionForm.medications.filter((item) =>
           item.medication_name.trim()
         )
-      });
+      };
+
+      if (editingPrescriptionId) {
+        await updateDoctorPrescription(token, editingPrescriptionId, payload);
+      } else {
+        await createDoctorPrescription(token, payload);
+      }
+
       setPrescriptionForm(emptyPrescription);
+      setEditingPrescriptionId("");
       await loadDashboard();
-      setMessage("Prescription issued.");
+      setMessage(
+        editingPrescriptionId
+          ? "Prescription updated."
+          : "Prescription issued."
+      );
       setActiveTab("prescriptions");
     } catch (prescriptionError) {
-      setError(prescriptionError.message || "Could not issue prescription");
+      setError(
+        prescriptionError.message || "Could not save prescription"
+      );
     } finally {
       setIssuingPrescription(false);
+    }
+  };
+
+  const handleEditPrescription = (prescription) => {
+    setPrescriptionForm(mapPrescriptionToForm(prescription));
+    setEditingPrescriptionId(prescription._id);
+    setMessage("");
+    setError("");
+    setActiveTab("prescriptions");
+  };
+
+  const handleCancelPrescriptionEdit = () => {
+    setPrescriptionForm(emptyPrescription);
+    setEditingPrescriptionId("");
+    setMessage("");
+    setError("");
+  };
+
+  const handleDeletePrescription = async (prescriptionId) => {
+    if (!window.confirm("Delete this prescription?")) {
+      return;
+    }
+
+    try {
+      setMessage("");
+      setError("");
+      await deleteDoctorPrescription(token, prescriptionId);
+
+      if (editingPrescriptionId === prescriptionId) {
+        setPrescriptionForm(emptyPrescription);
+        setEditingPrescriptionId("");
+      }
+
+      await loadDashboard();
+      setMessage("Prescription deleted.");
+      setActiveTab("prescriptions");
+    } catch (deleteError) {
+      setError(deleteError.message || "Could not delete prescription");
+    }
+  };
+
+  const handleStartPrescriptionSignature = async (prescription) => {
+    try {
+      setSigningPrescriptionId(prescription._id);
+      setMessage("");
+      setError("");
+
+      const payload = prescription.signature?.document_id
+        ? {}
+        : await createPrescriptionPdfPayload({
+            prescription,
+            patient: prescription.patient || {}
+          });
+      const result = await requestDoctorPrescriptionSignature(
+        token,
+        prescription._id,
+        {
+          pdfBase64: payload.base64,
+          fileName: payload.fileName
+        }
+      );
+
+      await loadDashboard();
+
+      if (result?.signLink) {
+        window.open(result.signLink, "_blank", "noopener,noreferrer");
+        setMessage("BoldSign signing page opened.");
+      } else {
+        setMessage("Signature request created. Refresh status after signing.");
+      }
+
+      setActiveTab("prescriptions");
+    } catch (signatureError) {
+      setError(signatureError.message || "Could not start BoldSign signing");
+    } finally {
+      setSigningPrescriptionId("");
+    }
+  };
+
+  const handleRefreshSignatureStatus = async (prescriptionId) => {
+    try {
+      setRefreshingSignatureId(prescriptionId);
+      setMessage("");
+      setError("");
+      await refreshPrescriptionSignatureStatus(token, prescriptionId);
+      await loadDashboard();
+      setMessage("Signature status refreshed.");
+      setActiveTab("prescriptions");
+    } catch (signatureError) {
+      setError(signatureError.message || "Could not refresh signature status");
+    } finally {
+      setRefreshingSignatureId("");
+    }
+  };
+
+  const handleDownloadSignedPrescription = async (prescription) => {
+    try {
+      setDownloadingSignedId(prescription._id);
+      setMessage("");
+      setError("");
+      const result = await downloadSignedPrescriptionPdf(token, prescription._id);
+
+      saveDownload({
+        blob: result.blob,
+        fileName:
+          result.fileName ||
+          prescription.signature?.file_name ||
+          `signed-prescription-${prescription._id}.pdf`
+      });
+    } catch (downloadError) {
+      setError(downloadError.message || "Could not download signed prescription");
+    } finally {
+      setDownloadingSignedId("");
     }
   };
 
@@ -655,7 +890,7 @@ export default function DoctorDashboard() {
                   <div className="summary-card simple-item" key={appointment._id}>
                     <strong>{formatDateTime(appointment.scheduled_at)}</strong>
                     <span className="form-hint">
-                      Patient: {appointment.patient_id}
+                      Patient: {getAppointmentPatientLabel(appointment)}
                     </span>
                     <select
                       value={drafts[appointment._id]?.status || "scheduled"}
@@ -723,6 +958,13 @@ export default function DoctorDashboard() {
                       >
                         Start consultation
                       </Link>
+                      <button
+                        className="secondary-button inline-button danger-button"
+                        type="button"
+                        onClick={() => handleAppointmentDelete(appointment._id)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -743,10 +985,34 @@ export default function DoctorDashboard() {
                   <p className="eyebrow">Patient Reports</p>
                   <h3>
                     {selectedPatient
-                      ? `Files for ${selectedPatient}`
+                      ? `Files for ${getPatientLabel(
+                          selectedPatientDetails || { _id: selectedPatient }
+                        )}`
                       : "Select an appointment patient"}
                   </h3>
                 </div>
+              </div>
+
+              <div className="field-grid">
+                <select
+                  value={selectedPatient}
+                  onChange={(event) => {
+                    const patientId = event.target.value;
+                    if (patientId) {
+                      handleLoadReports(patientId);
+                    } else {
+                      setSelectedPatient("");
+                      setReports([]);
+                    }
+                  }}
+                >
+                  <option value="">Select patient from appointments</option>
+                  {appointmentPatients.map((patient) => (
+                    <option key={patient._id} value={patient._id}>
+                      {getPatientLabel(patient)}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="simple-list">
@@ -787,7 +1053,11 @@ export default function DoctorDashboard() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Issue Prescription</p>
-                    <h3>Create digital prescription</h3>
+                    <h3>
+                      {editingPrescriptionId
+                        ? "Update digital prescription"
+                        : "Create digital prescription"}
+                    </h3>
                   </div>
                 </div>
 
@@ -806,7 +1076,7 @@ export default function DoctorDashboard() {
                     {appointments.map((appointment) => (
                       <option key={appointment._id} value={appointment._id}>
                         {formatDateTime(appointment.scheduled_at)} | Patient{" "}
-                        {appointment.patient_id}
+                        {getAppointmentPatientLabel(appointment)}
                       </option>
                     ))}
                   </select>
@@ -814,7 +1084,9 @@ export default function DoctorDashboard() {
                     <strong>Patient and appointment IDs are linked automatically.</strong>
                     <span className="form-hint">
                       {selectedPrescriptionAppointment
-                        ? `Selected patient: ${selectedPrescriptionAppointment.patient_id}`
+                        ? `Selected patient: ${getAppointmentPatientLabel(
+                            selectedPrescriptionAppointment
+                          )}`
                         : "Choose one of your appointments to auto-fill the patient details."}
                     </span>
                   </div>
@@ -912,6 +1184,21 @@ export default function DoctorDashboard() {
                           });
                         }}
                       />
+                      <input
+                        placeholder="Instructions"
+                        value={item.instructions}
+                        onChange={(event) => {
+                          const next = [...prescriptionForm.medications];
+                          next[index] = {
+                            ...next[index],
+                            instructions: event.target.value
+                          };
+                          setPrescriptionForm({
+                            ...prescriptionForm,
+                            medications: next
+                          });
+                        }}
+                      />
                     </div>
                   ))}
                   <button
@@ -926,7 +1213,8 @@ export default function DoctorDashboard() {
                             medication_name: "",
                             dosage: "",
                             frequency: "",
-                            duration: ""
+                            duration: "",
+                            instructions: ""
                           }
                         ]
                       })
@@ -934,12 +1222,25 @@ export default function DoctorDashboard() {
                   >
                     Add medication row
                   </button>
+                  {editingPrescriptionId ? (
+                    <button
+                      className="secondary-button inline-button"
+                      type="button"
+                      onClick={handleCancelPrescriptionEdit}
+                    >
+                      Cancel edit
+                    </button>
+                  ) : null}
                   <button
                     className="primary-button inline-button"
                     disabled={issuingPrescription}
                     type="submit"
                   >
-                    {issuingPrescription ? "Issuing..." : "Issue prescription"}
+                    {issuingPrescription
+                      ? "Saving..."
+                      : editingPrescriptionId
+                        ? "Update prescription"
+                        : "Issue prescription"}
                   </button>
                 </form>
               </article>
@@ -957,8 +1258,72 @@ export default function DoctorDashboard() {
                     <div className="summary-card simple-item" key={item._id}>
                       <strong>{item.diagnosis}</strong>
                       <span className="form-hint">
-                        Patient: {item.patient_id} | {formatDateTime(item.issued_at)}
+                        Patient: {item.patient?.email || item.patient_id} | {formatDateTime(item.issued_at)}
                       </span>
+                      <span className="form-hint">
+                        Medications:{" "}
+                        {Array.isArray(item.medications)
+                          ? item.medications
+                              .map((medication) => medication.medication_name)
+                              .filter(Boolean)
+                              .join(", ") || "No medications listed"
+                          : "No medications listed"}
+                      </span>
+                      <span className="form-hint">
+                        Signature: {formatSignatureStatus(item.signature)}
+                      </span>
+                      <div className="card-actions">
+                        <button
+                          className="secondary-button inline-button"
+                          type="button"
+                          onClick={() => handleEditPrescription(item)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="secondary-button inline-button danger-button"
+                          type="button"
+                          onClick={() => handleDeletePrescription(item._id)}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          className="primary-button inline-button"
+                          type="button"
+                          disabled={signingPrescriptionId === item._id}
+                          onClick={() => handleStartPrescriptionSignature(item)}
+                        >
+                          {signingPrescriptionId === item._id
+                            ? "Opening..."
+                            : item.signature?.document_id
+                              ? "Open signing"
+                              : "Send to BoldSign"}
+                        </button>
+                        {item.signature?.document_id ? (
+                          <button
+                            className="secondary-button inline-button"
+                            type="button"
+                            disabled={refreshingSignatureId === item._id}
+                            onClick={() => handleRefreshSignatureStatus(item._id)}
+                          >
+                            {refreshingSignatureId === item._id
+                              ? "Refreshing..."
+                              : "Refresh status"}
+                          </button>
+                        ) : null}
+                        {item.signature?.status === "completed" ? (
+                          <button
+                            className="secondary-button inline-button"
+                            type="button"
+                            disabled={downloadingSignedId === item._id}
+                            onClick={() => handleDownloadSignedPrescription(item)}
+                          >
+                            {downloadingSignedId === item._id
+                              ? "Downloading..."
+                              : "Download signed PDF"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                   {!prescriptions.length ? (
