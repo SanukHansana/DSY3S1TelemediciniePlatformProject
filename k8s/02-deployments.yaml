@@ -1,0 +1,403 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: telemedicine/auth-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_MONGO_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_JWT_SECRET
+          readinessProbe:
+            tcpSocket:
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appointment-service
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appointment-service
+  template:
+    metadata:
+      labels:
+        app: appointment-service
+    spec:
+      containers:
+        - name: appointment-service
+          image: telemedicine/appointment-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4003
+          env:
+            - name: PORT
+              value: "4003"
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: APPOINTMENT_MONGO_URI
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 4003
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 4003
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patient-service
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: patient-service
+  template:
+    metadata:
+      labels:
+        app: patient-service
+    spec:
+      containers:
+        - name: patient-service
+          image: telemedicine/patient-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4001
+          env:
+            - name: PORT
+              value: "4001"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: PATIENT_MONGODB_URI
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_JWT_SECRET
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:4003"
+            - name: DOCTOR_SERVICE_URL
+              value: "http://doctor-service:4002"
+            - name: TELEMEDICINE_SERVICE_URL
+              value: "http://telemedicine-service:4004"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doctor-service
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doctor-service
+  template:
+    metadata:
+      labels:
+        app: doctor-service
+    spec:
+      containers:
+        - name: doctor-service
+          image: telemedicine/doctor-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4002
+          env:
+            - name: PORT
+              value: "4002"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: DOCTOR_MONGODB_URI
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_JWT_SECRET
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:4003"
+            - name: PATIENT_SERVICE_URL
+              value: "http://patient-service:4001"
+            - name: TELEMEDICINE_SERVICE_URL
+              value: "http://telemedicine-service:4004"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4002
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telemedicine-service
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telemedicine-service
+  template:
+    metadata:
+      labels:
+        app: telemedicine-service
+    spec:
+      containers:
+        - name: telemedicine-service
+          image: telemedicine/telemedicine-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4004
+          env:
+            - name: PORT
+              value: "4004"
+            - name: VIDEO_PROVIDER
+              value: "jitsi"
+            - name: JITSI_DOMAIN
+              value: "meet.jit.si"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:4003"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: TELEMEDICINE_MONGODB_URI
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 4004
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 4004
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: telemedicine/notification-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4006
+          env:
+            - name: PORT
+              value: "4006"
+            - name: NODE_ENV
+              value: "development"
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: NOTIFICATION_MONGODB_URI
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: NOTIFICATION_MONGODB_URI
+            - name: SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: NOTIFICATION_SERVICE_API_KEY
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4006
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4006
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: telemedicine/payment-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4005
+          env:
+            - name: PORT
+              value: "4005"
+            - name: NODE_ENV
+              value: "development"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: PAYMENT_MONGODB_URI
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AUTH_JWT_SECRET
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:4006"
+            - name: NOTIFICATION_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: NOTIFICATION_SERVICE_API_KEY
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4005
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4005
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: telemedicine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: telemedicine/frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5173
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "5173"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:5000"
+            - name: PATIENT_SERVICE_URL
+              value: "http://patient-service:4001"
+            - name: DOCTOR_SERVICE_URL
+              value: "http://doctor-service:4002"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:4003"
+            - name: TELEMEDICINE_SERVICE_URL
+              value: "http://telemedicine-service:4004"
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:4005"
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:4006"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5173
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5173
+            initialDelaySeconds: 30
+            periodSeconds: 20

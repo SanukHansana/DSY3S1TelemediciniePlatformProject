@@ -1,4 +1,4 @@
-const API = "http://localhost:4003/api/appointments";
+const API = "/api/appointments";
 
 const parseResponse = async (response) => {
   const text = await response.text();

@@ -4,7 +4,7 @@
 import axios from 'axios';
 
 // Configurable base URL - can be updated based on environment
-const PAYMENT_API_BASE_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:3001';
+const PAYMENT_API_BASE_URL = import.meta.env.VITE_PAYMENT_API_URL || '/api';
 
 // Create axios instance with default configuration
 const paymentApiInstance = axios.create({

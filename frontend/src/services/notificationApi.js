@@ -4,7 +4,7 @@
 import axios from 'axios';
 
 // Configurable base URL - can be updated based on environment
-const NOTIFICATION_API_BASE_URL = import.meta.env.VITE_NOTIFICATION_API_URL || 'http://localhost:3002';
+const NOTIFICATION_API_BASE_URL = import.meta.env.VITE_NOTIFICATION_API_URL || '/api';
 
 // Create axios instance with default configuration
 const notificationApiInstance = axios.create({
@@ -117,7 +117,7 @@ const notificationApi = {
       if (options.status) params.append('status', options.status);
       
       const response = await notificationApiInstance.get(
-        `/notifications/recipient/${recipientId}?${params.toString()}`
+        `/notifications/user/${recipientId}?${params.toString()}`
       );
       return response.data;
     } catch (error) {

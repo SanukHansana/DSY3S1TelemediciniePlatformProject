@@ -72,13 +72,24 @@ function App() {
                   <Route path="/payment/status/:paymentId" element={<PaymentStatusPage />} />
                   <Route path="/payment/add-method" element={<AddPaymentMethodPage />} />
 
+                  {/* DASHBOARDS */}
                   <Route
-                    path="/patient/dashboard"
+                    path="/admin"
                     element={
-                      <ProtectedRoute role="patient">
-                        <PatientDashboard />
+                      <ProtectedRoute role="admin">
+                        <AdminDashboard />
                       </ProtectedRoute>
                     }
+                  />
+
+                  <Route
+                    path="/doctor/dashboard"
+                    element={<DoctorDashboard />}
+                  />
+
+                  <Route
+                    path="/patient/dashboard"
+                    element={<PatientDashboard />}
                   />
                 </Routes>
               </AppShell>

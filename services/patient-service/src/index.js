@@ -1,20 +1,23 @@
 import dotenv from "dotenv";
-import express from "express";
 
 dotenv.config();
 
-const app = express();
+import app from "./app.js";
+import connectDB from "./config/db.js";
+
 const PORT = process.env.PORT || 4001;
 
-app.use(express.json());
+const startServer = async () => {
+  try {
+    await connectDB();
 
-app.get("/", (req, res) => {
-  res.json({
-    service: "patient-service",
-    status: "running"
-  });
-});
+    app.listen(PORT, () => {
+      console.log(`Patient Service running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start patient service:", error);
+    process.exit(1);
+  }
+};
 
-app.listen(PORT, () => {
-  console.log(`Patient Service running on port ${PORT}`);
-});
+startServer();
