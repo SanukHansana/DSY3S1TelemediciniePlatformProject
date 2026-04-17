@@ -16,6 +16,7 @@ export default function Login() {
 
     try {
       const res = await loginUser({ email, password });
+      localStorage.setItem("last_login_email", email.trim());
 
       const { role, isVerified } = res.data;
 

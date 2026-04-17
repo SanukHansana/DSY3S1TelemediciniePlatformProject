@@ -11,13 +11,12 @@ export default function Register() {
     name: "",
     email: "",
     password: "",
-    role: "patient",
+    role: "patient"
   });
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ---------------- VALIDATION ----------------
   const validate = () => {
     if (!form.name.trim()) {
       toast.error("Name is required");
@@ -67,14 +66,24 @@ export default function Register() {
     try {
       const res = await registerUser(form);
 
-      toast.success("Account created successfully 🎉");
+      if (form.role === "patient") {
+        localStorage.setItem(
+          "patient_profile_prefill",
+          JSON.stringify({
+            role: "patient",
+            name: form.name.trim(),
+            email: form.email.trim()
+          })
+        );
+      }
+
+      toast.success("Account created successfully");
 
       console.log("SUCCESS:", res.data);
 
       setTimeout(() => {
         navigate("/login");
       }, 1000);
-
     } catch (err) {
       toast.error(err.response?.data?.msg || "Register failed");
     } finally {
@@ -85,12 +94,9 @@ export default function Register() {
   return (
     <div className="register-page">
       <div className="register-container">
-
         <form onSubmit={handleSubmit} className="register-card">
-
           <h2 className="register-title">Create Account</h2>
 
-          {/* NAME */}
           <input
             className="register-input"
             placeholder="Name"
@@ -100,7 +106,6 @@ export default function Register() {
             }
           />
 
-          {/* EMAIL */}
           <input
             className="register-input"
             placeholder="Email"
@@ -110,7 +115,6 @@ export default function Register() {
             }
           />
 
-          {/* PASSWORD */}
           <div className="password-wrapper">
             <input
               className="register-input"
@@ -131,7 +135,6 @@ export default function Register() {
             </button>
           </div>
 
-          {/* ROLE */}
           <div className="role-group">
             <label>
               <input
@@ -158,7 +161,6 @@ export default function Register() {
             </label>
           </div>
 
-          {/* BUTTON */}
           <button
             type="submit"
             className="register-button"
@@ -166,7 +168,6 @@ export default function Register() {
           >
             {loading ? "Creating account..." : "Register"}
           </button>
-
         </form>
       </div>
     </div>

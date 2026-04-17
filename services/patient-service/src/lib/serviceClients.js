@@ -50,6 +50,12 @@ export const createAppointment = async (payload) =>
     body: JSON.stringify(payload)
   });
 
+export const getDoctorById = async (doctorId) =>
+  requestJson(`${DOCTOR_SERVICE_URL}/api/doctors/${doctorId}`);
+
+export const getDoctorSlots = async (doctorId) =>
+  requestJson(`${DOCTOR_SERVICE_URL}/api/doctors/${doctorId}/slots`);
+
 export const getPrescriptionsForPatient = async (patientId, authHeader) =>
   requestJson(
     `${DOCTOR_SERVICE_URL}/api/doctors/prescriptions/patient/${patientId}`,

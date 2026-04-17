@@ -2,16 +2,21 @@ import AvailabilitySlot from "../models/availability.model.js";
 import Doctor from "../models/doctor.model.js";
 import mockDoctors from "../data/mockDoctors.js";
 
+const isMockSeedEnabled = () =>
+  ["1", "true", "yes", "on"].includes(
+    String(process.env.ENABLE_DOCTOR_MOCK_SEED || "").trim().toLowerCase()
+  );
+
 export const seedMockDoctors = async () => {
-  if (mockDoctors.length === 0) {
+  if (!isMockSeedEnabled() || mockDoctors.length === 0) {
     return;
   }
 
-  await Doctor.bulkWrite(
-    mockDoctors.map((doctor) => ({
-      updateOne: {
-        filter: { _id: doctor._id },
-        update: {
+  await Promise.all(
+    mockDoctors.map((doctor) =>
+      Doctor.updateOne(
+        { _id: doctor._id },
+        {
           $setOnInsert: {
             _id: doctor._id,
             full_name: doctor.full_name,
@@ -27,9 +32,12 @@ export const seedMockDoctors = async () => {
             is_active: true
           }
         },
-        upsert: true
-      }
-    }))
+        {
+          upsert: true,
+          timestamps: false
+        }
+      )
+    )
   );
 
   const slots = mockDoctors.flatMap((doctor) =>
@@ -48,17 +56,20 @@ export const seedMockDoctors = async () => {
     return;
   }
 
-  await AvailabilitySlot.bulkWrite(
-    slots.map((slot) => ({
-      updateOne: {
-        filter: { _id: slot._id },
-        update: {
+  await Promise.all(
+    slots.map((slot) =>
+      AvailabilitySlot.updateOne(
+        { _id: slot._id },
+        {
           $setOnInsert: {
             ...slot
           }
         },
-        upsert: true
-      }
-    }))
+        {
+          upsert: true,
+          timestamps: false
+        }
+      )
+    )
   );
 };

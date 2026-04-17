@@ -5,6 +5,16 @@ import { AuthContext } from "../context/AuthContext";
 import { getAvailableDoctors, getDoctorSlots } from "../services/doctorApi";
 import { createPatientAppointment } from "../services/patientApi";
 
+const formatSlotLabel = (slot) => {
+  if (slot?.specific_date) {
+    return new Date(slot.specific_date).toLocaleString();
+  }
+
+  return [slot?.day_of_week, `${slot?.start_time} - ${slot?.end_time}`]
+    .filter(Boolean)
+    .join(" | ");
+};
+
 export default function CreateAppointment() {
   const navigate = useNavigate();
   const { token, user } = useContext(AuthContext);
@@ -22,6 +32,8 @@ export default function CreateAppointment() {
     appointment_type: "video",
     patient_notes: ""
   });
+  const selectedDoctor = doctors.find((doctor) => doctor._id === form.doctor_id);
+  const selectedDoctorFee = Number(selectedDoctor?.consultation_fee) || 0;
 
   useEffect(() => {
     const loadDoctors = async () => {
@@ -118,15 +130,16 @@ export default function CreateAppointment() {
         slot_id: form.slot_id || null,
         scheduled_at: form.scheduled_at,
         appointment_type: form.appointment_type,
-        patient_notes: form.patient_notes
+        patient_notes: form.patient_notes,
+        fee_amount: selectedDoctorFee || null
       });
       // Navigate to payment page with appointment ID and consultation fee
-      navigate("/payment", { 
-        state: { 
+      navigate("/payment", {
+        state: {
           appointmentId: appointment._id || appointment.id,
-          amount: 150.00, // Default consultation fee - can be made dynamic
+          amount: selectedDoctorFee,
           patientId: appointment.patient_id || null
-        } 
+        }
       });
     } catch (saveError) {
       setError(saveError.message || "Could not create appointment");
@@ -163,11 +176,33 @@ export default function CreateAppointment() {
 
             {doctors.map((doctor) => (
               <option key={doctor._id} value={doctor._id}>
-                {doctor.full_name} - {doctor.specialty}
+                {(doctor.full_name || "Doctor profile incomplete") +
+                  " - " +
+                  (doctor.specialty || "General") +
+                  ` | Fee: LKR ${Number(doctor.consultation_fee || 0).toLocaleString()}`}
               </option>
             ))}
           </select>
         </label>
+
+        {selectedDoctor ? (
+          <div className="summary-card">
+            <strong>{selectedDoctor.full_name || "Selected doctor"}</strong>
+            <p className="form-hint">
+              Specialty: {selectedDoctor.specialty || "General"}
+            </p>
+            <p className="form-hint">
+              Consultation fee: LKR {selectedDoctorFee.toLocaleString()}
+            </p>
+          </div>
+        ) : null}
+
+        {!isLoadingDoctors && !doctors.length ? (
+          <p className="form-hint">
+            No verified doctor profiles are available yet. Doctors need to save
+            their profile and be verified before patients can book them.
+          </p>
+        ) : null}
 
         <label>
           <span>Select available slot</span>
@@ -183,7 +218,7 @@ export default function CreateAppointment() {
 
             {slots.map((slot) => (
               <option key={slot._id} value={slot._id}>
-                {slot.day_of_week} | {slot.start_time} - {slot.end_time}
+                {formatSlotLabel(slot)}
               </option>
             ))}
           </select>
@@ -218,6 +253,12 @@ export default function CreateAppointment() {
         <p className="form-hint">
           Your patient ID is linked automatically from your logged-in account.
         </p>
+        {selectedDoctor ? (
+          <p className="form-hint">
+            This appointment will use the doctor&apos;s stored consultation fee from
+            MongoDB.
+          </p>
+        ) : null}
 
         {error ? <p className="status-message error">{error}</p> : null}
 
