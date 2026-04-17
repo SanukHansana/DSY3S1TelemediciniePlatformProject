@@ -1,28 +1,19 @@
-// PaymentStatusPage.jsx
-// Page for displaying payment status and details
-
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import PaymentStatusCard from '../components/PaymentStatusCard';
 import RefundForm from '../components/RefundForm';
 import paymentApi from '../services/paymentApi';
 
 const PaymentStatusPage = () => {
-  // Get paymentId from URL params
   const { paymentId: urlPaymentId } = useParams();
   const navigate = useNavigate();
-  
-  // State management
+
   const [payment, setPayment] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [paymentId, setPaymentId] = useState(urlPaymentId || '');
   const [inputPaymentId, setInputPaymentId] = useState(urlPaymentId || '');
 
-  // Test payment ID for development
-  const testPaymentId = 'PAY123456789';
-
-  // Fetch payment data
   const fetchPayment = async (id) => {
     if (!id) {
       setError('Please enter a payment ID');
@@ -37,7 +28,10 @@ const PaymentStatusPage = () => {
       const response = await paymentApi.getPaymentById(id);
       setPayment(response);
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch payment details';
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to fetch payment details';
       setError(errorMessage);
       console.error('Error fetching payment:', err);
     } finally {
@@ -45,38 +39,34 @@ const PaymentStatusPage = () => {
     }
   };
 
-  // Handle search form submission
   const handleSearch = (e) => {
     e.preventDefault();
     const searchId = inputPaymentId.trim();
+
     if (searchId) {
       setPaymentId(searchId);
-      // Update URL to reflect the searched payment ID
       navigate(`/payment/status/${searchId}`);
       fetchPayment(searchId);
     }
   };
 
-  // Load payment data on component mount or when URL paymentId changes
   useEffect(() => {
     if (urlPaymentId) {
       setPaymentId(urlPaymentId);
       setInputPaymentId(urlPaymentId);
       fetchPayment(urlPaymentId);
     } else {
-      // If no URL paymentId, load test data for demo
-      setPaymentId(testPaymentId);
-      setInputPaymentId(testPaymentId);
-      fetchPayment(testPaymentId);
+      setPaymentId('');
+      setInputPaymentId('');
+      setPayment(null);
+      setError(null);
     }
   }, [urlPaymentId]);
 
-  // Handle retry
   const handleRetry = () => {
-    fetchPayment(paymentId);
+    fetchPayment(payment?.paymentId || payment?.id || paymentId);
   };
 
-  // Handle clear search
   const handleClear = () => {
     setInputPaymentId('');
     setPaymentId('');
@@ -93,7 +83,6 @@ const PaymentStatusPage = () => {
           <p>Check the status and details of your payment</p>
         </header>
 
-        {/* Search Section */}
         <section className="search-section">
           <div className="search-card">
             <h3>Search Payment</h3>
@@ -105,7 +94,7 @@ const PaymentStatusPage = () => {
                   type="text"
                   value={inputPaymentId}
                   onChange={(e) => setInputPaymentId(e.target.value)}
-                  placeholder="Enter payment ID (e.g., PAY123456789)"
+                  placeholder="Enter payment ID"
                   className="form-control"
                 />
               </div>
@@ -127,18 +116,13 @@ const PaymentStatusPage = () => {
               </div>
             </form>
 
-            {/* Test data hint */}
             <div className="test-hint">
-              <small>
-                💡 Test with payment ID: <strong>{testPaymentId}</strong>
-              </small>
+              <small>Enter the payment ID returned after a successful payment.</small>
             </div>
           </div>
         </section>
 
-        {/* Results Section */}
         <section className="results-section">
-          {/* Loading State */}
           {isLoading && (
             <div className="loading-state">
               <div className="loading-spinner"></div>
@@ -146,10 +130,9 @@ const PaymentStatusPage = () => {
             </div>
           )}
 
-          {/* Error State */}
           {error && !isLoading && (
             <div className="error-state">
-              <div className="error-icon">⚠️</div>
+              <div className="error-icon">!</div>
               <h3>Payment Not Found</h3>
               <p>{error}</p>
               <button onClick={handleRetry} className="btn btn-primary">
@@ -158,22 +141,24 @@ const PaymentStatusPage = () => {
             </div>
           )}
 
-          {/* Success State - Payment Card */}
           {payment && !isLoading && !error && (
             <div className="payment-result">
               <PaymentStatusCard payment={payment} />
-              
-              {/* Action Buttons */}
+
               <div className="action-buttons">
                 <button
-                  onClick={() => fetchPayment(paymentId)}
+                  onClick={() =>
+                    fetchPayment(payment.paymentId || payment.id || paymentId)
+                  }
                   className="btn btn-outline"
                 >
                   Refresh Status
                 </button>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(paymentId);
+                    navigator.clipboard.writeText(
+                      payment.paymentId || payment.id || paymentId
+                    );
                     alert('Payment ID copied to clipboard!');
                   }}
                   className="btn btn-outline"
@@ -182,20 +167,19 @@ const PaymentStatusPage = () => {
                 </button>
               </div>
 
-              {/* Refund Form - Only show for completed/successful payments */}
-              {(payment.status?.toLowerCase() === 'completed' || payment.status?.toLowerCase() === 'success') && (
-                <RefundForm 
-                  paymentId={payment.paymentId || payment.id} 
-                  maxAmount={payment.amount} 
+              {(payment.status?.toLowerCase() === 'completed' ||
+                payment.status?.toLowerCase() === 'success') && (
+                <RefundForm
+                  paymentId={payment.paymentId || payment.id}
+                  maxAmount={payment.amount}
                 />
               )}
             </div>
           )}
 
-          {/* Empty State */}
           {!payment && !isLoading && !error && !paymentId && (
             <div className="empty-state">
-              <div className="empty-icon">🔍</div>
+              <div className="empty-icon">?</div>
               <h3>No Payment Selected</h3>
               <p>Enter a payment ID above to check its status</p>
             </div>
@@ -424,7 +408,6 @@ const PaymentStatusPage = () => {
           margin: 0;
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
           .page-header h1 {
             font-size: 2rem;

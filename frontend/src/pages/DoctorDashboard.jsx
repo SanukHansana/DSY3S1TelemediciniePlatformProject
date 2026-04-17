@@ -40,7 +40,6 @@ const emptySlot = {
 
 const emptyPrescription = {
   appointment_id: "",
-  patient_id: "",
   diagnosis: "",
   notes: "",
   follow_up_date: "",
@@ -87,6 +86,9 @@ export default function DoctorDashboard() {
   const [issuingPrescription, setIssuingPrescription] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const selectedPrescriptionAppointment = appointments.find(
+    (appointment) => appointment._id === prescriptionForm.appointment_id
+  );
 
   const loadDashboard = async () => {
     try {
@@ -256,13 +258,17 @@ export default function DoctorDashboard() {
   const handlePrescriptionSubmit = async (event) => {
     event.preventDefault();
 
+    if (!prescriptionForm.appointment_id) {
+      setError("Select an appointment to auto-fill the patient details.");
+      return;
+    }
+
     try {
       setIssuingPrescription(true);
       setMessage("");
       setError("");
       await createDoctorPrescription(token, {
         appointment_id: prescriptionForm.appointment_id || null,
-        patient_id: prescriptionForm.patient_id || null,
         diagnosis: prescriptionForm.diagnosis,
         notes: prescriptionForm.notes,
         follow_up_date: prescriptionForm.follow_up_date || null,
@@ -593,8 +599,7 @@ export default function DoctorDashboard() {
                     onClick={() =>
                       setPrescriptionForm({
                         ...prescriptionForm,
-                        appointment_id: appointment._id,
-                        patient_id: appointment.patient_id
+                        appointment_id: appointment._id
                       })
                     }
                   >
@@ -659,8 +664,7 @@ export default function DoctorDashboard() {
           </div>
 
           <form className="field-grid" onSubmit={handlePrescriptionSubmit}>
-            <input
-              placeholder="Appointment ID"
+            <select
               value={prescriptionForm.appointment_id}
               onChange={(event) =>
                 setPrescriptionForm({
@@ -668,17 +672,23 @@ export default function DoctorDashboard() {
                   appointment_id: event.target.value
                 })
               }
-            />
-            <input
-              placeholder="Patient ID"
-              value={prescriptionForm.patient_id}
-              onChange={(event) =>
-                setPrescriptionForm({
-                  ...prescriptionForm,
-                  patient_id: event.target.value
-                })
-              }
-            />
+              required
+            >
+              <option value="">Select appointment</option>
+              {appointments.map((appointment) => (
+                <option key={appointment._id} value={appointment._id}>
+                  {formatDateTime(appointment.scheduled_at)} | Patient {appointment.patient_id}
+                </option>
+              ))}
+            </select>
+            <div className="summary-card full-span">
+              <strong>Patient and appointment IDs are linked automatically.</strong>
+              <span className="form-hint">
+                {selectedPrescriptionAppointment
+                  ? `Selected patient: ${selectedPrescriptionAppointment.patient_id}`
+                  : "Choose one of your appointments to auto-fill the patient details."}
+              </span>
+            </div>
             <textarea
               className="full-span"
               rows="3"

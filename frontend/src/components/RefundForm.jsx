@@ -1,26 +1,26 @@
-// RefundForm.jsx
-// Component for refund request form
-
 import React, { useState } from 'react';
 import paymentApi from '../services/paymentApi';
 
+const refundReasons = [
+  { value: 'APPOINTMENT_CANCELLED', label: 'Appointment cancelled' },
+  { value: 'SERVICE_NOT_PROVIDED', label: 'Service not provided' },
+  { value: 'DUPLICATE_PAYMENT', label: 'Duplicate payment' },
+  { value: 'CUSTOMER_REQUEST', label: 'Customer request' },
+  { value: 'OTHER', label: 'Other' },
+];
+
 const RefundForm = ({ paymentId, maxAmount }) => {
-  // Form state
   const [amount, setAmount] = useState('');
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState('CUSTOMER_REQUEST');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const [messageType, setMessageType] = useState('');
 
-  // Handle refund submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Reset message state
     setMessage(null);
     setMessageType('');
-    
-    // Basic validation
+
     if (!paymentId) {
       setMessage('Payment ID is required');
       setMessageType('error');
@@ -39,52 +39,47 @@ const RefundForm = ({ paymentId, maxAmount }) => {
       return;
     }
 
-    if (!reason.trim()) {
-      setMessage('Please provide a reason for the refund');
+    if (!reason) {
+      setMessage('Please select a reason for the refund');
       setMessageType('error');
       return;
     }
 
-    // Set loading state
     setIsLoading(true);
 
     try {
-      // Prepare refund data
       const refundData = {
         paymentId,
         amount: parseFloat(amount),
-        reason: reason.trim(),
+        reason,
       };
 
-      // Call refund API
       const response = await paymentApi.createRefund(refundData);
+      const refundId = response.refundId || response.id || response._id || 'N/A';
 
-      // Handle success
-      setMessage(`Refund request submitted successfully! Refund ID: ${response.refundId || 'N/A'}`);
+      setMessage(`Refund request submitted successfully! Refund ID: ${refundId}`);
       setMessageType('success');
-      
-      // Reset form after successful submission
+
       setTimeout(() => {
         setAmount('');
-        setReason('');
+        setReason('CUSTOMER_REQUEST');
         setMessage(null);
       }, 5000);
-      
     } catch (error) {
-      // Handle error
-      const errorMessage = error.response?.data?.message || error.message || 'Refund request failed. Please try again.';
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Refund request failed. Please try again.';
       setMessage(errorMessage);
       setMessageType('error');
     } finally {
-      // Reset loading state
       setIsLoading(false);
     }
   };
 
-  // Handle amount change with validation
   const handleAmountChange = (e) => {
     const value = e.target.value;
-    // Only allow positive numbers and decimal point
+
     if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
       setAmount(value);
     }
@@ -93,8 +88,7 @@ const RefundForm = ({ paymentId, maxAmount }) => {
   return (
     <div className="refund-form">
       <h3>Request Refund</h3>
-      
-      {/* Payment Info */}
+
       <div className="payment-info">
         <div className="info-row">
           <strong>Payment ID:</strong> {paymentId || 'N/A'}
@@ -104,7 +98,6 @@ const RefundForm = ({ paymentId, maxAmount }) => {
         </div>
       </div>
 
-      {/* Refund Form */}
       <form onSubmit={handleSubmit} className="form">
         <div className="form-group">
           <label htmlFor="refund-amount">Refund Amount ($):</label>
@@ -124,19 +117,19 @@ const RefundForm = ({ paymentId, maxAmount }) => {
 
         <div className="form-group">
           <label htmlFor="refund-reason">Reason for Refund:</label>
-          <textarea
+          <select
             id="refund-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Please explain why you are requesting a refund..."
             disabled={isLoading}
-            className="form-control textarea"
-            rows="4"
-            maxLength="500"
-          />
-          <small className="char-count">
-            {reason.length}/500 characters
-          </small>
+            className="form-control"
+          >
+            {refundReasons.map((entry) => (
+              <option key={entry.value} value={entry.value}>
+                {entry.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button
@@ -148,14 +141,12 @@ const RefundForm = ({ paymentId, maxAmount }) => {
         </button>
       </form>
 
-      {/* Display messages */}
       {message && (
         <div className={`message ${messageType}`}>
           {message}
         </div>
       )}
 
-      {/* Important Notes */}
       <div className="refund-notes">
         <h4>Important Notes:</h4>
         <ul>
@@ -231,19 +222,6 @@ const RefundForm = ({ paymentId, maxAmount }) => {
           box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
         }
 
-        .textarea {
-          resize: vertical;
-          min-height: 100px;
-        }
-
-        .char-count {
-          display: block;
-          margin-top: 5px;
-          color: #6c757d;
-          font-size: 0.85rem;
-          text-align: right;
-        }
-
         .btn {
           padding: 12px 24px;
           border: none;
@@ -308,16 +286,15 @@ const RefundForm = ({ paymentId, maxAmount }) => {
         }
 
         .refund-notes li {
-          padding: 8px 0;
+          padding: 8px 0 8px 20px;
           color: #555;
           font-size: 0.9rem;
           position: relative;
-          padding-left: 20px;
           border-bottom: 1px solid #e9ecef;
         }
 
         .refund-notes li:before {
-          content: "⚠️";
+          content: "!";
           position: absolute;
           left: 0;
         }
@@ -326,7 +303,6 @@ const RefundForm = ({ paymentId, maxAmount }) => {
           border-bottom: none;
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
           .refund-form {
             margin: 30px 15px 0;

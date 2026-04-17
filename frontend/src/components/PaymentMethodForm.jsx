@@ -1,16 +1,12 @@
-// PaymentMethodForm.jsx
-// Component for adding new payment methods
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import paymentApi from '../services/paymentApi';
 
-const PaymentMethodForm = () => {
+const PaymentMethodForm = ({ returnState = null }) => {
   const navigate = useNavigate();
-  
-  // Form state
+
   const [formData, setFormData] = useState({
-    type: 'credit_card',
+    type: 'CREDIT_CARD',
     cardNumber: '',
     cardholderName: '',
     expiryMonth: '',
@@ -25,19 +21,17 @@ const PaymentMethodForm = () => {
     },
     isDefault: false
   });
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState('');
 
-  // Handle form field changes
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     if (name.includes('.')) {
-      // Handle nested billing address fields
       const [parent, child] = name.split('.');
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         [parent]: {
           ...prev[parent],
@@ -45,42 +39,37 @@ const PaymentMethodForm = () => {
         }
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         [name]: type === 'checkbox' ? checked : value
       }));
     }
   };
 
-  // Format card number input
   const handleCardNumberChange = (e) => {
-    let value = e.target.value.replace(/\s/g, ''); // Remove spaces
+    const value = e.target.value.replace(/\D/g, '');
     let formattedValue = '';
-    
-    // Add spaces every 4 digits
-    for (let i = 0; i < value.length; i++) {
+
+    for (let i = 0; i < value.length; i += 1) {
       if (i > 0 && i % 4 === 0) {
         formattedValue += ' ';
       }
       formattedValue += value[i];
     }
-    
-    // Limit to 16 digits
+
     if (value.length <= 16) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         cardNumber: formattedValue
       }));
     }
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage(null);
     setMessageType('');
 
-    // Basic validation
     if (!formData.cardNumber.replace(/\s/g, '')) {
       setMessage('Please enter a card number');
       setMessageType('error');
@@ -114,7 +103,6 @@ const PaymentMethodForm = () => {
     setIsLoading(true);
 
     try {
-      // Prepare payment method data
       const paymentMethodData = {
         type: formData.type,
         cardNumber: formData.cardNumber.replace(/\s/g, ''),
@@ -126,17 +114,14 @@ const PaymentMethodForm = () => {
         isDefault: formData.isDefault
       };
 
-      // Call API to add payment method
-      const response = await paymentApi.addPaymentMethod(paymentMethodData);
+      await paymentApi.addPaymentMethod(paymentMethodData);
 
-      // Handle success
       setMessage('Payment method added successfully!');
       setMessageType('success');
-      
-      // Reset form after successful submission
+
       setTimeout(() => {
         setFormData({
-          type: 'credit_card',
+          type: 'CREDIT_CARD',
           cardNumber: '',
           cardholderName: '',
           expiryMonth: '',
@@ -152,11 +137,17 @@ const PaymentMethodForm = () => {
           isDefault: false
         });
         setMessage(null);
-        navigate('/payment');
+        if (returnState) {
+          navigate('/payment', { state: returnState });
+        } else {
+          navigate('/');
+        }
       }, 3000);
-      
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to add payment method';
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to add payment method';
       setMessage(errorMessage);
       setMessageType('error');
     } finally {
@@ -164,16 +155,14 @@ const PaymentMethodForm = () => {
     }
   };
 
-  // Generate year options (current year + 10 years)
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 11 }, (_, i) => currentYear + i);
 
   return (
     <div className="payment-method-form">
       <h3>Add Payment Method</h3>
-      
+
       <form onSubmit={handleSubmit} className="form">
-        {/* Payment Method Type */}
         <div className="form-group">
           <label htmlFor="type">Payment Method Type:</label>
           <select
@@ -184,15 +173,14 @@ const PaymentMethodForm = () => {
             disabled={isLoading}
             className="form-control"
           >
-            <option value="credit_card">Credit Card</option>
-            <option value="debit_card">Debit Card</option>
+            <option value="CREDIT_CARD">Credit Card</option>
+            <option value="DEBIT_CARD">Debit Card</option>
           </select>
         </div>
 
-        {/* Card Information */}
         <div className="card-section">
           <h4>Card Information</h4>
-          
+
           <div className="form-group">
             <label htmlFor="cardNumber">Card Number:</label>
             <input
@@ -253,7 +241,7 @@ const PaymentMethodForm = () => {
                 className="form-control"
               >
                 <option value="">Year</option>
-                {years.map(year => (
+                {years.map((year) => (
                   <option key={year} value={year}>
                     {year}
                   </option>
@@ -272,7 +260,10 @@ const PaymentMethodForm = () => {
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, '');
                 if (value.length <= 3) {
-                  handleInputChange(e);
+                  setFormData((prev) => ({
+                    ...prev,
+                    cvv: value
+                  }));
                 }
               }}
               placeholder="123"
@@ -283,10 +274,9 @@ const PaymentMethodForm = () => {
           </div>
         </div>
 
-        {/* Billing Address */}
         <div className="billing-section">
           <h4>Billing Address</h4>
-          
+
           <div className="form-group">
             <label htmlFor="street">Street Address:</label>
             <input
@@ -365,7 +355,6 @@ const PaymentMethodForm = () => {
           </div>
         </div>
 
-        {/* Default Payment Method */}
         <div className="form-group checkbox-group">
           <label>
             <input
@@ -379,7 +368,6 @@ const PaymentMethodForm = () => {
           </label>
         </div>
 
-        {/* Submit Button */}
         <button
           type="submit"
           disabled={isLoading}
@@ -389,7 +377,6 @@ const PaymentMethodForm = () => {
         </button>
       </form>
 
-      {/* Messages */}
       {message && (
         <div className={`message ${messageType}`}>
           {message}
@@ -520,7 +507,6 @@ const PaymentMethodForm = () => {
           border: 1px solid #f5c6cb;
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
           .payment-method-form {
             margin: 20px 15px;

@@ -1,10 +1,11 @@
-// AddPaymentMethodPage.jsx
-// Page for adding new payment methods
-
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import PaymentMethodForm from '../components/PaymentMethodForm';
 
 const AddPaymentMethodPage = () => {
+  const location = useLocation();
+  const returnState = location.state || null;
+
   return (
     <div className="add-payment-method-page">
       <div className="container">
@@ -14,10 +15,17 @@ const AddPaymentMethodPage = () => {
         </header>
 
         <main className="page-content">
-          {/* Payment Method Form */}
-          <PaymentMethodForm />
+          <PaymentMethodForm returnState={returnState} />
 
-          {/* Security Information */}
+          {returnState?.appointmentId ? (
+            <div className="return-hint">
+              <p>
+                After saving the method, you will be taken back to the payment
+                page for your appointment.
+              </p>
+            </div>
+          ) : null}
+
           <div className="security-info">
             <h3>Security & Privacy</h3>
             <div className="security-features">
@@ -52,7 +60,6 @@ const AddPaymentMethodPage = () => {
             </div>
           </div>
 
-          {/* Help Section */}
           <div className="help-section">
             <h3>Need Help?</h3>
             <div className="help-content">
@@ -109,6 +116,18 @@ const AddPaymentMethodPage = () => {
           display: flex;
           flex-direction: column;
           gap: 40px;
+        }
+
+        .return-hint {
+          background: #e8f4fd;
+          color: #0c5460;
+          padding: 18px 20px;
+          border-radius: 12px;
+          border: 1px solid #bee5eb;
+        }
+
+        .return-hint p {
+          margin: 0;
         }
 
         .security-info {

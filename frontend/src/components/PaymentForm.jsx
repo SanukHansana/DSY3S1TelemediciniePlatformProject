@@ -1,77 +1,99 @@
-// PaymentForm.jsx
-// Component for payment form with method selection
-
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import paymentApi from '../services/paymentApi';
 
-const PaymentForm = ({ appointmentId, amount }) => {
+const PaymentForm = ({ appointmentId, amount, patientId }) => {
   const navigate = useNavigate();
-  
-  // Form state
-  const [paymentMethod, setPaymentMethod] = useState('credit_card');
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState([]);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState('');
+  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const [messageType, setMessageType] = useState('');
 
-  // Available payment methods
-  const paymentMethods = [
-    { value: 'credit_card', label: 'Credit Card' },
-    { value: 'debit_card', label: 'Debit Card' },
-    { value: 'upi', label: 'UPI' },
-    { value: 'net_banking', label: 'Net Banking' },
-  ];
+  useEffect(() => {
+    const loadPaymentMethods = async () => {
+      try {
+        setIsLoadingMethods(true);
+        const methods = await paymentApi.getPaymentMethods();
+        const list = Array.isArray(methods) ? methods : [];
+        setSavedPaymentMethods(list);
 
-  // Handle payment submission
+        const defaultMethod =
+          list.find((entry) => entry.isDefault) || list[0] || null;
+        setSelectedPaymentMethodId(defaultMethod?._id || '');
+      } catch (error) {
+        setSavedPaymentMethods([]);
+        setMessage(
+          error.response?.data?.message ||
+            error.message ||
+            'Could not load saved payment methods.'
+        );
+        setMessageType('error');
+      } finally {
+        setIsLoadingMethods(false);
+      }
+    };
+
+    loadPaymentMethods();
+  }, []);
+
+  const formatPaymentMethod = (paymentMethod) => {
+    const label =
+      paymentMethod.type === 'DEBIT_CARD' ? 'Debit Card' : 'Credit Card';
+    const brandPrefix = paymentMethod.brand ? `${paymentMethod.brand} ` : '';
+
+    return `${brandPrefix}${label} - **** ${paymentMethod.last4} (${paymentMethod.expiryMonth}/${paymentMethod.expiryYear})`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Reset message state
     setMessage(null);
     setMessageType('');
-    
-    // Validate inputs
-    if (!appointmentId || !amount) {
-      setMessage('Appointment ID and amount are required');
+
+    if (!appointmentId || !patientId || !amount) {
+      setMessage('Appointment ID, patient ID, and amount are required');
       setMessageType('error');
       return;
     }
 
-    // Set loading state
+    if (!selectedPaymentMethodId) {
+      setMessage('Add a payment method first before paying for this appointment.');
+      setMessageType('error');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Prepare payment data
       const paymentData = {
         appointmentId,
+        patientId,
         amount: parseFloat(amount),
-        paymentMethod,
+        savedPaymentMethodId: selectedPaymentMethodId,
       };
 
-      // Call payment API
       const response = await paymentApi.initiatePayment(paymentData);
+      const createdPaymentId = response.paymentId || response.id || response._id;
 
-      // Handle success
-      const paymentId = response.paymentId || response.id;
-      setMessage(`Payment initiated successfully! Redirecting to payment status...`);
+      setMessage('Payment initiated successfully! Redirecting to payment status...');
       setMessageType('success');
-      
-      // Navigate to payment status page after a short delay
+
       setTimeout(() => {
-        if (paymentId) {
-          navigate(`/payment/status/${paymentId}`);
+        if (createdPaymentId) {
+          navigate(`/payment/status/${createdPaymentId}`);
         } else {
           navigate('/payment/status');
         }
       }, 2000);
-      
     } catch (error) {
-      // Handle error
-      const errorMessage = error.response?.data?.message || error.message || 'Payment failed. Please try again.';
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Payment failed. Please try again.';
       setMessage(errorMessage);
       setMessageType('error');
     } finally {
-      // Reset loading state
       setIsLoading(false);
     }
   };
@@ -79,59 +101,82 @@ const PaymentForm = ({ appointmentId, amount }) => {
   return (
     <div className="payment-form">
       <h3>Payment Details</h3>
-      
-      {/* Display appointment and amount info */}
+
       <div className="payment-info">
         <div className="info-row">
           <strong>Appointment ID:</strong> {appointmentId || 'N/A'}
+        </div>
+        <div className="info-row">
+          <strong>Patient ID:</strong> {patientId || 'N/A'}
         </div>
         <div className="info-row">
           <strong>Amount:</strong> ${amount || '0.00'}
         </div>
       </div>
 
-      {/* Payment form */}
       <form onSubmit={handleSubmit} className="form">
         <div className="form-group">
-          <label htmlFor="payment-method">Payment Method:</label>
+          <label htmlFor="saved-payment-method">Saved Payment Method:</label>
           <select
-            id="payment-method"
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            disabled={isLoading}
+            id="saved-payment-method"
+            value={selectedPaymentMethodId}
+            onChange={(e) => setSelectedPaymentMethodId(e.target.value)}
+            disabled={isLoading || isLoadingMethods || savedPaymentMethods.length === 0}
             className="form-control"
           >
-            {paymentMethods.map((method) => (
-              <option key={method.value} value={method.value}>
-                {method.label}
+            {savedPaymentMethods.length === 0 ? (
+              <option value="">
+                {isLoadingMethods
+                  ? 'Loading payment methods...'
+                  : 'No saved payment methods'}
               </option>
-            ))}
+            ) : (
+              savedPaymentMethods.map((paymentMethod) => (
+                <option key={paymentMethod._id} value={paymentMethod._id}>
+                  {formatPaymentMethod(paymentMethod)}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
-        <div className="form-group">
-          <Link to="/payment/add-method" className="add-method-link">
-            + Add New Payment Method
-          </Link>
-        </div>
+        {savedPaymentMethods.length > 0 ? (
+          <p className="form-hint">
+            Select one of your saved cards, or add another method if you want to
+            use a different one.
+          </p>
+        ) : (
+          <div className="payment-method-warning">
+            <p className="form-hint">
+              Add a payment method first, then come back here to complete the
+              payment.
+            </p>
+          </div>
+        )}
+
+        <Link
+          className="secondary-link"
+          to="/payment/add-method"
+          state={{ appointmentId, amount, patientId }}
+        >
+          Add payment method
+        </Link>
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isLoadingMethods || savedPaymentMethods.length === 0}
           className="btn btn-primary"
         >
           {isLoading ? 'Processing...' : `Pay $${amount || '0.00'}`}
         </button>
       </form>
 
-      {/* Display messages */}
       {message && (
         <div className={`message ${messageType}`}>
           {message}
         </div>
       )}
 
-      {/* Loading indicator */}
       {isLoading && (
         <div className="loading-indicator">
           <p>Processing your payment...</p>
@@ -166,6 +211,20 @@ const PaymentForm = ({ appointmentId, amount }) => {
 
         .form {
           margin-bottom: 15px;
+        }
+
+        .form-hint {
+          margin: 0 0 15px;
+          color: #6c757d;
+          font-size: 13px;
+        }
+
+        .payment-method-warning {
+          margin-bottom: 15px;
+          padding: 12px;
+          background-color: #fff3cd;
+          border: 1px solid #ffe69c;
+          border-radius: 6px;
         }
 
         .form-group {
@@ -242,30 +301,16 @@ const PaymentForm = ({ appointmentId, amount }) => {
           font-style: italic;
         }
 
-        .add-method-link {
+        .secondary-link {
           display: inline-block;
-          padding: 10px 16px;
-          background-color: #f8f9fa;
-          border: 2px dashed #667eea;
-          border-radius: 8px;
-          color: #667eea;
+          margin-bottom: 15px;
+          color: #007bff;
           text-decoration: none;
           font-weight: 600;
-          font-size: 14px;
-          text-align: center;
-          transition: all 0.2s;
-          width: 100%;
-          box-sizing: border-box;
         }
 
-        .add-method-link:hover {
-          background-color: #667eea;
-          color: white;
-          border-style: solid;
-        }
-
-        .add-method-link:active {
-          transform: translateY(1px);
+        .secondary-link:hover {
+          text-decoration: underline;
         }
       `}</style>
     </div>

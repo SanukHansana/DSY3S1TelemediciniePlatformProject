@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 
 // Import routes
 import paymentRoutes from './routes/payments.js';
+import paymentMethodRoutes from './routes/paymentMethods.js';
 import refundRoutes from './routes/refunds.js';
 
 // Load environment variables
@@ -30,6 +31,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/payments', paymentRoutes);
+app.use('/api/payment-methods', paymentMethodRoutes);
 app.use('/api/refunds', refundRoutes);
 
 // Root endpoint
@@ -39,6 +41,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       payments: '/api/payments',
+      paymentMethods: '/api/payment-methods',
       refunds: '/api/refunds',
       health: '/health'
     }

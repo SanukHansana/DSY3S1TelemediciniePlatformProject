@@ -1,127 +1,143 @@
 import { v4 as uuidv4 } from 'uuid';
 
-// Mock payment gateway service
+const isExpiredCard = (expiryMonth, expiryYear) => {
+  const month = Number(expiryMonth);
+  const year = Number(expiryYear);
+
+  if (!month || !year) {
+    return true;
+  }
+
+  const currentDate = new Date();
+  const expiryDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+  return expiryDate < currentDate;
+};
+
 export const initiatePayment = async (paymentData) => {
   try {
-    // Simulate payment gateway processing
-    const { amount, currency, paymentMethod, appointmentId, patientId } = paymentData;
-    
-    // Generate a mock transaction ID
+    const {
+      amount,
+      currency,
+      paymentMethod,
+      paymentSource
+    } = paymentData;
     const gatewayTxnId = `txn_${uuidv4()}`;
-    
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock success/failure logic (90% success rate for testing)
-    const isSuccess = Math.random() > 0.1;
-    
-    if (isSuccess) {
-      return {
-        success: true,
-        gatewayTxnId,
-        status: 'SUCCESS',
-        amount,
-        currency,
-        paymentMethod,
-        message: 'Payment processed successfully',
-        metadata: {
-          processedAt: new Date().toISOString(),
-          gateway: 'MOCK',
-          authCode: `AUTH_${Math.random().toString(36).substr(2, 9).toUpperCase()}`
-        }
-      };
-    } else {
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    if (!amount || Number(amount) <= 0) {
       return {
         success: false,
         gatewayTxnId,
         status: 'FAILED',
-        error: 'Payment declined by gateway',
-        errorCode: 'GATEWAY_DECLINED',
+        error: 'Invalid payment amount',
+        errorCode: 'INVALID_AMOUNT',
         metadata: {
           processedAt: new Date().toISOString(),
-          gateway: 'MOCK',
-          declineReason: 'Insufficient funds'
+          gateway: 'MANUAL'
         }
       };
     }
+
+    if (
+      paymentSource?.expiryMonth &&
+      paymentSource?.expiryYear &&
+      isExpiredCard(paymentSource.expiryMonth, paymentSource.expiryYear)
+    ) {
+      return {
+        success: false,
+        gatewayTxnId,
+        status: 'FAILED',
+        error: 'The selected payment method is expired',
+        errorCode: 'CARD_EXPIRED',
+        metadata: {
+          processedAt: new Date().toISOString(),
+          gateway: 'MANUAL'
+        }
+      };
+    }
+
+    return {
+      success: true,
+      gatewayTxnId,
+      status: 'SUCCESS',
+      amount,
+      currency,
+      paymentMethod,
+      message: 'Payment processed successfully',
+      metadata: {
+        processedAt: new Date().toISOString(),
+        gateway: 'MANUAL',
+        sourceType: paymentSource?.type || 'saved_payment_method',
+        brand: paymentSource?.brand || null,
+        maskedCard: paymentSource?.last4
+          ? `**** **** **** ${paymentSource.last4}`
+          : null
+      }
+    };
   } catch (error) {
-    console.error('Payment gateway error:', error);
+    console.error('Payment processor error:', error);
     return {
       success: false,
       error: error.message,
-      errorCode: 'GATEWAY_ERROR'
+      errorCode: 'PROCESSOR_ERROR'
     };
   }
 };
 
-// Mock refund processing
 export const processRefund = async (refundData) => {
   try {
     const { paymentId, amount, reason } = refundData;
-    
-    // Generate mock refund ID
     const gatewayRefundId = `refund_${uuidv4()}`;
-    
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Mock success/failure logic (95% success rate for refunds)
-    const isSuccess = Math.random() > 0.05;
-    
-    if (isSuccess) {
-      return {
-        success: true,
-        gatewayRefundId,
-        status: 'COMPLETED',
-        amount,
-        reason,
-        message: 'Refund processed successfully',
-        metadata: {
-          processedAt: new Date().toISOString(),
-          gateway: 'MOCK',
-          refundCode: `REF_${Math.random().toString(36).substr(2, 9).toUpperCase()}`
-        }
-      };
-    } else {
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    if (!paymentId || !amount || Number(amount) <= 0) {
       return {
         success: false,
         gatewayRefundId,
         status: 'REJECTED',
-        error: 'Refund rejected by gateway',
-        errorCode: 'REFUND_REJECTED',
+        error: 'Invalid refund request',
+        errorCode: 'INVALID_REFUND_REQUEST',
         metadata: {
           processedAt: new Date().toISOString(),
-          gateway: 'MOCK',
-          rejectionReason: 'Refund period expired'
+          gateway: 'MANUAL'
         }
       };
     }
+
+    return {
+      success: true,
+      gatewayRefundId,
+      status: 'COMPLETED',
+      amount,
+      reason,
+      message: 'Refund processed successfully',
+      metadata: {
+        processedAt: new Date().toISOString(),
+        gateway: 'MANUAL',
+        processor: 'LOCAL'
+      }
+    };
   } catch (error) {
-    console.error('Refund gateway error:', error);
+    console.error('Refund processor error:', error);
     return {
       success: false,
       error: error.message,
-      errorCode: 'GATEWAY_ERROR'
+      errorCode: 'PROCESSOR_ERROR'
     };
   }
 };
 
-// Mock payment status check
 export const getPaymentStatus = async (gatewayTxnId) => {
   try {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Mock status response
-    const statuses = ['SUCCESS', 'FAILED', 'PENDING'];
-    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+    await new Promise(resolve => setTimeout(resolve, 200));
     
     return {
       gatewayTxnId,
-      status: randomStatus,
+      status: 'SUCCESS',
       metadata: {
         checkedAt: new Date().toISOString(),
-        gateway: 'MOCK'
+        gateway: 'MANUAL'
       }
     };
   } catch (error) {
@@ -134,10 +150,8 @@ export const getPaymentStatus = async (gatewayTxnId) => {
   }
 };
 
-// Mock webhook simulation
 export const simulateWebhook = async (paymentData) => {
   try {
-    // Simulate webhook notification
     const webhookPayload = {
       event: 'payment.completed',
       data: {
@@ -150,9 +164,9 @@ export const simulateWebhook = async (paymentData) => {
       signature: `webhook_${Math.random().toString(36).substr(2, 32)}`
     };
     
-    console.log('=== MOCK WEBHOOK SENT ===');
+    console.log('=== PAYMENT EVENT ===');
     console.log('Payload:', JSON.stringify(webhookPayload, null, 2));
-    console.log('========================');
+    console.log('=====================');
     
     return {
       success: true,

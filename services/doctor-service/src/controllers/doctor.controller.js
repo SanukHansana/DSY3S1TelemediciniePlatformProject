@@ -412,7 +412,9 @@ export const issuePrescription = async (req, res) => {
       });
     }
 
-    patientId = patientId || appointment.patient_id;
+    // When a prescription is tied to an appointment, always trust the
+    // appointment's patient_id instead of any client-provided value.
+    patientId = appointment.patient_id;
   }
 
   if (!patientId) {

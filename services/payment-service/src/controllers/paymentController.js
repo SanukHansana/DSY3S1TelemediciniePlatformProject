@@ -1,4 +1,5 @@
 import Payment from '../models/Payment.js';
+import PaymentMethod from '../models/PaymentMethod.js';
 import { initiatePayment, simulateWebhook } from '../services/paymentGatewayService.js';
 import { 
   sendPaymentSuccessNotification, 
@@ -7,19 +8,79 @@ import {
 
 const initiatePaymentController = async (req, res) => {
   try {
-    const { appointmentId, patientId, amount, currency = 'USD', paymentMethod } = req.body;
+    const {
+      appointmentId,
+      patientId: requestedPatientId,
+      amount,
+      currency = 'USD',
+      savedPaymentMethodId
+    } = req.body;
+    const isUserRequest = req.authType === 'user';
+    let patientId = req.user?.role === 'patient'
+      ? req.user.id
+      : requestedPatientId || req.user?.id;
 
     // Validate required fields
-    if (!appointmentId || !patientId || !amount || !paymentMethod) {
+    if (!appointmentId || !patientId || !amount || !savedPaymentMethodId) {
       return res.status(400).json({
         success: false,
-        message: 'appointmentId, patientId, amount, and paymentMethod are required'
+        message: 'appointmentId, patientId, amount, and savedPaymentMethodId are required'
       });
     }
 
+    if (isUserRequest && !['patient', 'admin'].includes(req.user?.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only patients or admins can initiate payments'
+      });
+    }
+
+    if (
+      req.user?.role === 'patient' &&
+      requestedPatientId &&
+      requestedPatientId !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Patients can only initiate payments for their own account'
+      });
+    }
+
+    const savedPaymentMethod = await PaymentMethod.findById(savedPaymentMethodId);
+
+    if (!savedPaymentMethod) {
+      return res.status(404).json({
+        success: false,
+        message: 'Saved payment method not found'
+      });
+    }
+
+    if (
+      isUserRequest &&
+      req.user?.role === 'patient' &&
+      String(savedPaymentMethod.userId) !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only pay with your own saved payment methods'
+      });
+    }
+
+    if (
+      requestedPatientId &&
+      String(savedPaymentMethod.userId) !== String(requestedPatientId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'The saved payment method does not belong to the selected patient'
+      });
+    }
+
+    patientId = String(savedPaymentMethod.userId);
+
     // Check if payment already exists for this appointment
     const existingPayment = await Payment.findOne({ appointmentId });
-    if (existingPayment) {
+    if (existingPayment && existingPayment.status !== 'FAILED') {
       return res.status(400).json({
         success: false,
         message: 'Payment already initiated for this appointment',
@@ -27,34 +88,51 @@ const initiatePaymentController = async (req, res) => {
       });
     }
 
-    // Create payment record with PENDING status
-    const payment = new Payment({
-      appointmentId,
-      patientId,
-      gateway: 'MOCK',
-      gatewayTxnId: `pending_${Date.now()}`,
-      amount,
-      currency: currency.toUpperCase(),
-      paymentMethod,
-      status: 'PENDING'
-    });
+    const payment = existingPayment && existingPayment.status === 'FAILED'
+      ? existingPayment
+      : new Payment();
+
+    payment.appointmentId = appointmentId;
+    payment.patientId = patientId;
+    payment.gateway = 'MANUAL';
+    payment.gatewayTxnId = `pending_${Date.now()}`;
+    payment.amount = amount;
+    payment.currency = currency.toUpperCase();
+    payment.paymentMethod = savedPaymentMethod.type;
+    payment.status = 'PENDING';
+    payment.completedAt = undefined;
+    payment.metadata = {
+      sourceType: 'saved_payment_method',
+      paymentMethodId: savedPaymentMethod._id,
+      maskedCard: `**** **** **** ${savedPaymentMethod.last4}`,
+      brand: savedPaymentMethod.brand
+    };
 
     await payment.save();
 
-    // Initiate payment with gateway
     const gatewayResponse = await initiatePayment({
       amount,
       currency,
-      paymentMethod,
+      paymentMethod: savedPaymentMethod.type,
       appointmentId,
-      patientId
+      patientId,
+      paymentSource: {
+        type: 'saved_payment_method',
+        paymentMethodId: savedPaymentMethod._id,
+        brand: savedPaymentMethod.brand,
+        last4: savedPaymentMethod.last4,
+        expiryMonth: savedPaymentMethod.expiryMonth,
+        expiryYear: savedPaymentMethod.expiryYear
+      }
     });
 
-    // Update payment with gateway response
     if (gatewayResponse.success) {
       payment.gatewayTxnId = gatewayResponse.gatewayTxnId;
       payment.status = gatewayResponse.status;
-      payment.metadata = gatewayResponse.metadata;
+      payment.metadata = {
+        ...payment.metadata,
+        ...gatewayResponse.metadata
+      };
       
       if (gatewayResponse.status === 'SUCCESS') {
         payment.completedAt = new Date();
@@ -62,6 +140,7 @@ const initiatePaymentController = async (req, res) => {
     } else {
       payment.status = 'FAILED';
       payment.metadata = {
+        ...payment.metadata,
         error: gatewayResponse.error,
         errorCode: gatewayResponse.errorCode
       };
@@ -76,7 +155,6 @@ const initiatePaymentController = async (req, res) => {
       await sendPaymentFailedNotification(payment);
     }
 
-    // Simulate webhook notification
     if (gatewayResponse.success) {
       simulateWebhook({
         gatewayTxnId: payment.gatewayTxnId,

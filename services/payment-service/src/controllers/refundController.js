@@ -24,6 +24,25 @@ const createRefund = async (req, res) => {
       });
     }
 
+    if (req.authType === 'user') {
+      if (!['patient', 'admin'].includes(req.user?.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only patients or admins can request refunds'
+        });
+      }
+
+      if (
+        req.user?.role === 'patient' &&
+        String(payment.patientId) !== req.user.id
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only refund your own payments'
+        });
+      }
+    }
+
     // Check if payment is successful (only successful payments can be refunded)
     if (payment.status !== 'SUCCESS') {
       return res.status(400).json({

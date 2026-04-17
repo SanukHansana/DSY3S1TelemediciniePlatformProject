@@ -99,10 +99,10 @@ const PaymentStatusCard = ({ payment }) => {
           </div>
 
           {/* Transaction ID */}
-          {payment.transactionId && (
+          {(payment.transactionId || payment.gatewayTxnId) && (
             <div className="info-row">
               <span className="label">Transaction ID:</span>
-              <span className="value">{payment.transactionId}</span>
+              <span className="value">{payment.transactionId || payment.gatewayTxnId}</span>
             </div>
           )}
 

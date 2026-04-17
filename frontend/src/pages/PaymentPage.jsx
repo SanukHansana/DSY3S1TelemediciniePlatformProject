@@ -1,21 +1,20 @@
-// PaymentPage.jsx
-// Page for handling payment submissions
-
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PaymentForm from '../components/PaymentForm';
 
 const PaymentPage = () => {
-  // Get state passed from CreateAppointment navigation
   const location = useLocation();
   const stateData = location.state || {};
-  
-  // Use passed data or fallback to test data
+
   const paymentData = {
-    appointmentId: stateData.appointmentId || 'APT123456',
-    amount: stateData.amount || 150.00,
-    patientId: stateData.patientId || 'PAT001',
+    appointmentId: stateData.appointmentId || '',
+    amount: stateData.amount || 0,
+    patientId: stateData.patientId || '',
   };
+
+  const hasRequiredPaymentData = Boolean(
+    paymentData.appointmentId && paymentData.patientId && paymentData.amount
+  );
 
   return (
     <div className="payment-page">
@@ -26,17 +25,30 @@ const PaymentPage = () => {
         </header>
 
         <main className="page-content">
-          {/* Payment Form Component */}
-          <PaymentForm 
-            appointmentId={paymentData.appointmentId} 
-            amount={paymentData.amount} 
-          />
+          {hasRequiredPaymentData ? (
+            <PaymentForm
+              appointmentId={paymentData.appointmentId}
+              amount={paymentData.amount}
+              patientId={paymentData.patientId}
+            />
+          ) : (
+            <div className="payment-warning">
+              <h3>Payment details are missing</h3>
+              <p>
+                Create an appointment first so the payment page receives the
+                appointment and patient information it needs.
+              </p>
+              <Link className="back-link" to="/">
+                Back to appointments
+              </Link>
+            </div>
+          )}
 
-          {/* Additional Information */}
           <div className="payment-instructions">
             <h3>Payment Instructions</h3>
             <ul>
               <li>Select your preferred payment method from the dropdown</li>
+              <li>Add a payment method first if you do not have a saved card yet</li>
               <li>Click "Pay" to initiate the payment process</li>
               <li>You will receive a confirmation once the payment is processed</li>
               <li>Keep the payment ID for your records</li>
@@ -82,6 +94,32 @@ const PaymentPage = () => {
           gap: 40px;
         }
 
+        .payment-warning {
+          background-color: #fff3cd;
+          border: 1px solid #ffe69c;
+          border-radius: 8px;
+          padding: 24px;
+          color: #664d03;
+        }
+
+        .payment-warning h3 {
+          margin: 0 0 12px;
+        }
+
+        .payment-warning p {
+          margin: 0 0 16px;
+        }
+
+        .back-link {
+          color: #7c5f00;
+          font-weight: 600;
+          text-decoration: none;
+        }
+
+        .back-link:hover {
+          text-decoration: underline;
+        }
+
         .payment-instructions {
           background-color: white;
           padding: 30px;
@@ -102,15 +140,14 @@ const PaymentPage = () => {
         }
 
         .payment-instructions li {
-          padding: 10px 0;
+          padding: 10px 0 10px 25px;
           border-bottom: 1px solid #eee;
           color: #555;
           position: relative;
-          padding-left: 25px;
         }
 
         .payment-instructions li:before {
-          content: "✓";
+          content: ">";
           position: absolute;
           left: 0;
           color: #28a745;
@@ -121,7 +158,6 @@ const PaymentPage = () => {
           border-bottom: none;
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
           .page-header h1 {
             font-size: 2rem;

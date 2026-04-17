@@ -45,6 +45,10 @@ export default defineConfig({
         target: paymentServiceUrl,
         changeOrigin: true,
       },
+      '/api/payment-methods': {
+        target: paymentServiceUrl,
+        changeOrigin: true,
+      },
       '/api/refunds': {
         target: paymentServiceUrl,
         changeOrigin: true,
