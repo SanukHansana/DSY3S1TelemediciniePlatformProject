@@ -1,8 +1,6 @@
 import crypto from "crypto";
-
-const sessions = new Map();
-const appointmentIndex = new Map();
-const sessionEvents = new Map();
+import { Session } from "../models/Session.js";
+import { SessionEvent } from "../models/SessionEvent.js";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -26,125 +24,149 @@ const calculateDurationSeconds = (session) => {
   );
 };
 
-export const createSessionForAppointment = ({
+export const createSessionForAppointment = async ({
   appointmentId,
   patientId,
   doctorId,
   provider,
   scheduledAt
 }) => {
-  const existingId = appointmentIndex.get(appointmentId);
+  try {
+    const existingSession = await Session.findByAppointmentId(appointmentId);
 
-  if (existingId) {
-    return {
-      created: false,
-      session: clone(sessions.get(existingId))
+    if (existingSession) {
+      return {
+        created: false,
+        session: clone(existingSession.toJSON())
+      };
+    }
+
+    const sessionData = {
+      id: crypto.randomUUID(),
+      appointmentId,
+      patientId,
+      doctorId,
+      provider,
+      roomName: buildRoomName(appointmentId),
+      status: "created",
+      scheduledAt,
+      startedAt: null,
+      endedAt: null,
+      durationSeconds: 0,
+      recordingUrl: null
     };
+
+    const session = await Session.create(sessionData);
+
+    return {
+      created: true,
+      session: clone(session.toJSON())
+    };
+  } catch (error) {
+    throw new Error(`Failed to create session: ${error.message}`);
   }
-
-  const session = {
-    id: crypto.randomUUID(),
-    appointmentId,
-    patientId,
-    doctorId,
-    provider,
-    roomName: buildRoomName(appointmentId),
-    status: "created",
-    scheduledAt,
-    startedAt: null,
-    endedAt: null,
-    durationSeconds: 0,
-    recordingUrl: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  sessions.set(session.id, session);
-  appointmentIndex.set(appointmentId, session.id);
-  sessionEvents.set(session.id, []);
-
-  return {
-    created: true,
-    session: clone(session)
-  };
 };
 
-export const getSessionByAppointmentId = (appointmentId) => {
-  const sessionId = appointmentIndex.get(appointmentId);
-
-  if (!sessionId) {
-    return null;
+export const getSessionByAppointmentId = async (appointmentId) => {
+  try {
+    const session = await Session.findByAppointmentId(appointmentId);
+    return session ? clone(session.toJSON()) : null;
+  } catch (error) {
+    throw new Error(`Failed to get session by appointment ID: ${error.message}`);
   }
-
-  return clone(sessions.get(sessionId));
 };
 
-export const getSessionRecordById = (sessionId) => {
-  const session = sessions.get(sessionId);
-  return session ? clone(session) : null;
+export const getSessionRecordById = async (sessionId) => {
+  try {
+    const session = await Session.findById(sessionId);
+    return session ? clone(session.toJSON()) : null;
+  } catch (error) {
+    throw new Error(`Failed to get session by ID: ${error.message}`);
+  }
 };
 
-export const getEventsBySessionId = (sessionId) => {
-  return clone(sessionEvents.get(sessionId) || []);
+export const getEventsBySessionId = async (sessionId) => {
+  try {
+    const events = await SessionEvent.findBySessionId(sessionId);
+    return clone(events.map(event => event.toJSON()));
+  } catch (error) {
+    throw new Error(`Failed to get events by session ID: ${error.message}`);
+  }
 };
 
-export const storeSessionEvent = (
+export const storeSessionEvent = async (
   sessionId,
   { eventType, participantId, participantRole, participantName }
 ) => {
-  const session = sessions.get(sessionId);
+  try {
+    const session = await Session.findById(sessionId);
 
-  if (!session) {
-    return null;
+    if (!session) {
+      return null;
+    }
+
+    const eventData = {
+      id: crypto.randomUUID(),
+      eventType,
+      participantId,
+      participantRole,
+      participantName
+    };
+
+    const event = await SessionEvent.create(sessionId, eventData);
+
+    // Update session's updatedAt timestamp
+    await session.update({});
+
+    return clone(event.toJSON());
+  } catch (error) {
+    throw new Error(`Failed to store session event: ${error.message}`);
   }
-
-  const event = {
-    id: crypto.randomUUID(),
-    sessionId,
-    eventType,
-    participantId,
-    participantRole,
-    participantName,
-    occurredAt: new Date().toISOString()
-  };
-
-  const events = sessionEvents.get(sessionId) || [];
-  events.push(event);
-  sessionEvents.set(sessionId, events);
-
-  session.updatedAt = new Date().toISOString();
-
-  return clone(event);
 };
 
-export const markSessionStarted = (sessionId) => {
-  const session = sessions.get(sessionId);
+export const markSessionStarted = async (sessionId) => {
+  try {
+    const session = await Session.findById(sessionId);
 
-  if (!session) {
-    return null;
+    if (!session) {
+      return null;
+    }
+
+    const updates = { status: "live" };
+    if (!session.startedAt) {
+      updates.startedAt = new Date().toISOString();
+    }
+
+    const updatedSession = await session.update(updates);
+
+    return clone(updatedSession.toJSON());
+  } catch (error) {
+    throw new Error(`Failed to mark session started: ${error.message}`);
   }
-
-  if (!session.startedAt) {
-    session.startedAt = new Date().toISOString();
-  }
-
-  session.status = "live";
-  session.updatedAt = new Date().toISOString();
-
-  return clone(session);
 };
 
-export const completeSessionById = (sessionId) => {
-  const session = sessions.get(sessionId);
+export const completeSessionById = async (sessionId) => {
+  try {
+    const session = await Session.findById(sessionId);
 
-  if (!session) {
-    return null;
+    if (!session) {
+      return null;
+    }
+
+    const endedAt = new Date().toISOString();
+    const durationSeconds = calculateDurationSeconds({
+      ...session,
+      endedAt
+    });
+
+    const updatedSession = await session.update({
+      status: "completed",
+      endedAt,
+      durationSeconds
+    });
+
+    return clone(updatedSession.toJSON());
+  } catch (error) {
+    throw new Error(`Failed to complete session: ${error.message}`);
   }
-
-  session.status = "completed";
-  session.endedAt = new Date().toISOString();
-  session.durationSeconds = calculateDurationSeconds(session);
-  session.updatedAt = new Date().toISOString();
-
-  return clone(session);
 };

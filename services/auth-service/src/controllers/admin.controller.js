@@ -1,32 +1,85 @@
 const User = require("../models/user.model");
 
-exports.getAllUsers = async (req, res, next) => {
+// GET ALL DOCTORS (pending or all)
+exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password -refreshToken");
-    res.json({ count: users.length, users });
+    const users = await User.find().select("-password");
+
+    res.json(users); // ✅ returns doctors + patients
   } catch (err) {
-    next(err);
+    res.status(500).json({ msg: err.message });
   }
 };
 
+// VERIFY DOCTOR
 exports.verifyDoctor = async (req, res) => {
-  const { id } = req.params;
-  const user = await User.findById(id);
+  try {
+    const { id } = req.params;
 
-  if (!user || user.role !== "doctor") {
-    return res.status(400).json({ msg: "Not a doctor" });
+    const doctor = await User.findById(id);
+
+    if (!doctor) {
+      return res.status(404).json({ msg: "Doctor not found" });
+    }
+
+    if (doctor.role !== "doctor") {
+      return res.status(400).json({ msg: "User is not a doctor" });
+    }
+
+    doctor.isVerified = true;
+    await doctor.save();
+
+    res.json({
+      msg: "Doctor verified successfully",
+      doctor,
+    });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
   }
-
-  user.isVerified = true;
-  await user.save();
-  res.json({ msg: "Doctor verified" });
 };
 
+// DELETE USER
 exports.deleteUser = async (req, res) => {
-  const { id } = req.params;
-  const deleted = await User.findByIdAndDelete(id);
+  try {
+    const user = await User.findById(req.params.id);
 
-  if (!deleted) return res.status(404).json({ msg: "User not found" });
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
 
-  res.json({ msg: "User deleted" });
+    // 🚫 Prevent deleting admin
+    if (user.role === "admin") {
+      return res.status(403).json({ msg: "Cannot delete admin" });
+    }
+
+    await user.deleteOne();
+
+    res.json({ msg: "User deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      {
+        name: req.body.name,
+        email: req.body.email,
+        role: req.body.role,
+      },
+      { new: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
 };

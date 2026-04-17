@@ -1,30 +1,64 @@
-const API = "http://localhost:4002/api";
+import { apiRequest } from "./apiClient";
 
-const parseResponse = async (response) => {
-  const text = await response.text();
-  let data = null;
+const API = "/api/doctors";
 
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch (error) {
-      data = { message: text };
-    }
-  }
+export const getAvailableDoctors = () => apiRequest(API);
 
-  if (!response.ok) {
-    throw new Error(data?.message || "Request failed");
-  }
+export const getDoctorSlots = (doctorId) =>
+  apiRequest(`${API}/${doctorId}/slots`);
 
-  return data;
-};
+export const getMyDoctorProfile = (token) =>
+  apiRequest(`${API}/me`, { token });
 
-export const getAvailableDoctors = async () => {
-  const response = await fetch(`${API}/doctors`);
-  return parseResponse(response);
-};
+export const updateMyDoctorProfile = (token, payload) =>
+  apiRequest(`${API}/me`, {
+    method: "PUT",
+    token,
+    body: payload
+  });
 
-export const getDoctorSlots = async (doctorId) => {
-  const response = await fetch(`${API}/doctors/${doctorId}/slots`);
-  return parseResponse(response);
-};
+export const getMyDoctorAvailability = (token) =>
+  apiRequest(`${API}/me/availability`, { token });
+
+export const createDoctorAvailability = (token, payload) =>
+  apiRequest(`${API}/me/availability`, {
+    method: "POST",
+    token,
+    body: payload
+  });
+
+export const updateDoctorAvailability = (token, slotId, payload) =>
+  apiRequest(`${API}/me/availability/${slotId}`, {
+    method: "PUT",
+    token,
+    body: payload
+  });
+
+export const deleteDoctorAvailability = (token, slotId) =>
+  apiRequest(`${API}/me/availability/${slotId}`, {
+    method: "DELETE",
+    token
+  });
+
+export const getMyDoctorAppointments = (token) =>
+  apiRequest(`${API}/me/appointments`, { token });
+
+export const updateDoctorAppointmentStatus = (token, appointmentId, payload) =>
+  apiRequest(`${API}/appointments/${appointmentId}/status`, {
+    method: "PATCH",
+    token,
+    body: payload
+  });
+
+export const createDoctorPrescription = (token, payload) =>
+  apiRequest(`${API}/prescriptions`, {
+    method: "POST",
+    token,
+    body: payload
+  });
+
+export const getMyDoctorPrescriptions = (token) =>
+  apiRequest(`${API}/me/prescriptions`, { token });
+
+export const getPatientReportsForDoctor = (token, patientId) =>
+  apiRequest(`${API}/patients/${patientId}/reports`, { token });

@@ -1,0 +1,76 @@
+.doctor-page {
+  padding: 20px;
+  background: #f4f7f4;
+  min-height: 100vh;
+  font-family: "Segoe UI", sans-serif;
+}
+
+/* NAVBAR */
+.doctor-navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  background: white;
+  padding: 15px 20px;
+  border-radius: 12px;
+  border: 1px solid #d9e5de;
+  margin-bottom: 20px;
+}
+
+.doctor-navbar button {
+  margin-left: 10px;
+  padding: 8px 14px;
+  border: none;
+  background: #12785e;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* CARDS */
+.doctor-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.doctor-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #d9e5de;
+}
+
+.doctor-card h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #61756d;
+}
+
+.doctor-card p {
+  font-size: 28px;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+/* TABLE */
+.doctor-table {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #d9e5de;
+  margin-bottom: 20px;
+}
+
+.doctor-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.doctor-table th,
+.doctor-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}

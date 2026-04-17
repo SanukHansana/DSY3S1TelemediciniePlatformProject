@@ -54,7 +54,7 @@ export const createOrGetSession = async (req, res) => {
       return res.status(404).json({ message: "Appointment not found" });
     }
 
-    const { session, created } = createSessionForAppointment({
+    const { session, created } = await createSessionForAppointment({
       appointmentId,
       patientId: appointment.patient_id,
       doctorId: appointment.doctor_id,
@@ -62,7 +62,7 @@ export const createOrGetSession = async (req, res) => {
       provider: process.env.VIDEO_PROVIDER || "jitsi"
     });
 
-    storeSessionEvent(session.id, {
+    await storeSessionEvent(session.id, {
       eventType: created ? "session_created" : "session_reused",
       participantId: participant.id,
       participantRole: participant.role,
@@ -77,7 +77,7 @@ export const createOrGetSession = async (req, res) => {
 
 export const getAppointmentSession = async (req, res) => {
   try {
-    const session = getSessionByAppointmentId(req.params.appointmentId);
+    const session = await getSessionByAppointmentId(req.params.appointmentId);
 
     if (!session) {
       return res.status(404).json({ message: "No video session created yet" });
@@ -91,7 +91,7 @@ export const getAppointmentSession = async (req, res) => {
 
 export const getSessionById = async (req, res) => {
   try {
-    const session = getSessionRecordById(req.params.sessionId);
+    const session = await getSessionRecordById(req.params.sessionId);
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
@@ -105,15 +105,15 @@ export const getSessionById = async (req, res) => {
 
 export const getSessionEvents = async (req, res) => {
   try {
-    const session = getSessionRecordById(req.params.sessionId);
+    const session = await getSessionRecordById(req.params.sessionId);
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
     }
 
-    return res.json({
-      events: getEventsBySessionId(req.params.sessionId)
-    });
+    const events = await getEventsBySessionId(req.params.sessionId);
+
+    return res.json({ events });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -121,7 +121,7 @@ export const getSessionEvents = async (req, res) => {
 
 export const logSessionEvent = async (req, res) => {
   try {
-    const session = getSessionRecordById(req.params.sessionId);
+    const session = await getSessionRecordById(req.params.sessionId);
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
@@ -130,7 +130,7 @@ export const logSessionEvent = async (req, res) => {
     const participant = buildParticipant(req.body);
     const eventType = req.body.eventType || "custom_event";
 
-    const event = storeSessionEvent(req.params.sessionId, {
+    const event = await storeSessionEvent(req.params.sessionId, {
       eventType,
       participantId: participant.id,
       participantRole: participant.role,
@@ -138,7 +138,7 @@ export const logSessionEvent = async (req, res) => {
     });
 
     if (eventType === "conference_joined") {
-      const updatedSession = markSessionStarted(req.params.sessionId);
+      const updatedSession = await markSessionStarted(req.params.sessionId);
 
       if (updatedSession?.status === "live") {
         await updateAppointmentStatus(updatedSession.appointmentId, "in-consultation");
@@ -153,7 +153,7 @@ export const logSessionEvent = async (req, res) => {
 
 export const completeSession = async (req, res) => {
   try {
-    const session = completeSessionById(req.params.sessionId);
+    const session = await completeSessionById(req.params.sessionId);
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
@@ -161,7 +161,7 @@ export const completeSession = async (req, res) => {
 
     const participant = buildParticipant(req.body);
 
-    storeSessionEvent(session.id, {
+    await storeSessionEvent(session.id, {
       eventType: "session_completed",
       participantId: participant.id,
       participantRole: participant.role,

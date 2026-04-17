@@ -24,6 +24,10 @@ services:
       - "4001:4001"
     env_file:
       - ./services/patient-service/.env
+    environment:
+      APPOINTMENT_SERVICE_URL: http://appointment-service:4003
+      DOCTOR_SERVICE_URL: http://doctor-service:4002
+      TELEMEDICINE_SERVICE_URL: http://telemedicine-service:4004
     depends_on:
       - patient-db
 
@@ -42,6 +46,10 @@ services:
       - "4002:4002"
     env_file:
       - ./services/doctor-service/.env
+    environment:
+      APPOINTMENT_SERVICE_URL: http://appointment-service:4003
+      PATIENT_SERVICE_URL: http://patient-service:4001
+      TELEMEDICINE_SERVICE_URL: http://telemedicine-service:4004
     depends_on:
       - doctor-db
 
@@ -126,3 +134,10 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=5173
+      - AUTH_SERVICE_URL=http://auth-service:5000
+      - PATIENT_SERVICE_URL=http://patient-service:4001
+      - DOCTOR_SERVICE_URL=http://doctor-service:4002
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:4003
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:4004
+      - PAYMENT_SERVICE_URL=http://payment-service:4005
+      - NOTIFICATION_SERVICE_URL=http://notification-service:4006
