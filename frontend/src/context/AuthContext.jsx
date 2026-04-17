@@ -7,14 +7,17 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
 
   const login = (data) => {
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("role", data.role);
-
-    setToken(data.token);
-    setUser({
+    const nextUser = {
       role: data.role,
       isVerified: data.isVerified,
-    });
+    };
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("role", data.role);
+    localStorage.setItem("user", JSON.stringify(nextUser));
+
+    setToken(data.token);
+    setUser(nextUser);
   };
 
   const logout = () => {
@@ -22,21 +25,29 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
 
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
     localStorage.removeItem("user");
   };
 
   useEffect(() => {
-  const savedUser = localStorage.getItem("user");
-  const savedToken = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    const savedRole = localStorage.getItem("role");
+    const savedToken = localStorage.getItem("token");
 
-  if (savedUser && savedUser !== "undefined") {
-    setUser(JSON.parse(savedUser));
-  }
+    if (savedUser && savedUser !== "undefined") {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (error) {
+        setUser(savedRole ? { role: savedRole } : null);
+      }
+    } else if (savedRole && savedRole !== "undefined") {
+      setUser({ role: savedRole });
+    }
 
-  if (savedToken && savedToken !== "undefined") {
-    setToken(savedToken);
-  }
-}, []);
+    if (savedToken && savedToken !== "undefined") {
+      setToken(savedToken);
+    }
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout }}>

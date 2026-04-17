@@ -1,123 +1,85 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
-import "./App.css";
-import AppShell from "./components/AppShell";
-
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
+
+import { AuthProvider } from "./context/AuthContext";
+import AppShell from "./components/AppShell";
+import ProtectedRoute from "./components/ProtectedRoute";
+import "./App.css";
 import "react-toastify/dist/ReactToastify.css";
 
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-
-import AppointmentPage from "./pages/AppointmentPage";
-import CreateAppointmentPage from "./pages/CreateAppointmentPage";
-import ConsultationPage from "./pages/ConsultationPage";
-
 import AdminDashboard from "./pages/AdminDashboard";
+import AppointmentPage from "./pages/AppointmentPage";
+import ConsultationPage from "./pages/ConsultationPage";
+import CreateAppointmentPage from "./pages/CreateAppointmentPage";
 import DoctorDashboard from "./pages/DoctorDashboard";
+import Login from "./pages/Login";
+import NotificationsPage from "./pages/NotificationsPage";
+import NotificationTemplatesPage from "./pages/NotificationTemplatesPage";
 import PatientDashboard from "./pages/PatientDashboard";
-
-import ProtectedRoute from "./components/ProtectedRoute";
-
 import PaymentPage from "./pages/PaymentPage";
 import PaymentStatusPage from "./pages/PaymentStatusPage";
 import AddPaymentMethodPage from "./pages/AddPaymentMethodPage";
-
-// Notification pages
-import NotificationsPage from "./pages/NotificationsPage";
-import NotificationTemplatesPage from "./pages/NotificationTemplatesPage";
-
-// 👇 OPTIONAL (only if you created them)
-import Login from "./pages/Login";
 import Register from "./pages/Register";
-import { AuthProvider } from "./context/AuthContext";
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-
-        {/* ✅ TOAST GLOBAL CONTAINER (ADDED ONLY THIS) */}
         <ToastContainer position="top-right" autoClose={3000} />
 
         <Routes>
-          <Route path="/" element={<AppointmentPage />} />
-          <Route path="/appointments/new" element={<CreateAppointmentPage />} />
-          <Route path="/consultation/:appointmentId" element={<ConsultationPage />} />
-          
-          {/* Payment routes */}
-          <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/payment/status" element={<PaymentStatusPage />} />
-          <Route path="/payment/status/:paymentId" element={<PaymentStatusPage />} />
-          <Route path="/payment/add-method" element={<AddPaymentMethodPage />} />
-          
-          {/* Notification routes */}
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/notifications/templates" element={<NotificationTemplatesPage />} />
-
-          {/* 🔓 PUBLIC ROUTES */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* ADMIN */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute role="admin">
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
+          <Route element={<AppShell />}>
+            <Route index element={<AppointmentPage />} />
+            <Route path="/appointments/new" element={<CreateAppointmentPage />} />
+            <Route
+              path="/consultation/:appointmentId"
+              element={<ConsultationPage />}
+            />
 
-          {/* DOCTOR */}
-          <Route
-            path="/doctor/dashboard"
-            element={
-              <ProtectedRoute role="doctor">
-                <DoctorDashboard />
-              </ProtectedRoute>
-            }
-          />
+            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/payment/status" element={<PaymentStatusPage />} />
+            <Route
+              path="/payment/status/:paymentId"
+              element={<PaymentStatusPage />}
+            />
+            <Route path="/payment/add-method" element={<AddPaymentMethodPage />} />
 
-          {/* 🔒 PRIVATE ROUTES */}
-          <Route
-            path="/*"
-            element={
-              <AppShell>
-                <Routes>
-                  <Route path="/" element={<AppointmentPage />} />
-                  <Route path="/appointments/new" element={<CreateAppointmentPage />} />
-                  <Route path="/consultation/:appointmentId" element={<ConsultationPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route
+              path="/notifications/templates"
+              element={<NotificationTemplatesPage />}
+            />
 
-                  <Route path="/payment" element={<PaymentPage />} />
-                  <Route path="/payment/status" element={<PaymentStatusPage />} />
-                  <Route path="/payment/status/:paymentId" element={<PaymentStatusPage />} />
-                  <Route path="/payment/add-method" element={<AddPaymentMethodPage />} />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-                  {/* DASHBOARDS */}
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute role="admin">
-                        <AdminDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
+            <Route
+              path="/doctor/dashboard"
+              element={
+                <ProtectedRoute role="doctor">
+                  <DoctorDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-                  <Route
-                    path="/doctor/dashboard"
-                    element={<DoctorDashboard />}
-                  />
-
-                  <Route
-                    path="/patient/dashboard"
-                    element={<PatientDashboard />}
-                  />
-                </Routes>
-              </AppShell>
-            }
-          />
-
+            <Route
+              path="/patient/dashboard"
+              element={
+                <ProtectedRoute role="patient">
+                  <PatientDashboard />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
         </Routes>
       </Router>
     </AuthProvider>

@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
@@ -64,7 +64,7 @@ export default function AppShell({ children }) {
         )}
       </header>
 
-      <main className="page-content">{children}</main>
+      <main className="page-content">{children ?? <Outlet />}</main>
 
       <Footer />
     </div>
