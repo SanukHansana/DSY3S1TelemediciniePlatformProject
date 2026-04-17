@@ -1,104 +1,3 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import "./doctor.css";
-
-export default function DoctorDashboard() {
-  const navigate = useNavigate();
-
-  // TEMP data (replace with API later)
-  const [patients, setPatients] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-
-  useEffect(() => {
-    // 🔥 Replace with API later
-    setPatients([
-      { id: 1, name: "John Doe", email: "john@mail.com" },
-      { id: 2, name: "Jane Smith", email: "jane@mail.com" },
-    ]);
-
-    setAppointments([
-      { id: 1, patient: "John Doe", date: "2026-04-20", status: "Pending" },
-      { id: 2, patient: "Jane Smith", date: "2026-04-21", status: "Completed" },
-    ]);
-  }, []);
-
-  return (
-    <div className="doctor-page">
-
-      {/* NAVBAR */}
-      <div className="doctor-navbar">
-        <h2>Doctor Dashboard</h2>
-
-        <div>
-          <button onClick={() => navigate("/doctor/dashboard")}>
-            Dashboard
-          </button>
-          <button onClick={() => navigate("/doctor/patients")}>
-            Patients
-          </button>
-          <button onClick={() => navigate("/doctor/appointments")}>
-            Appointments
-          </button>
-        </div>
-      </div>
-
-      {/* STATS */}
-      <div className="doctor-cards">
-        <div className="doctor-card">
-          <h3>Total Patients</h3>
-          <p>{patients.length}</p>
-        </div>
-
-        <div className="doctor-card">
-          <h3>Total Appointments</h3>
-          <p>{appointments.length}</p>
-        </div>
-      </div>
-
-      {/* PATIENT LIST */}
-      <div className="doctor-table">
-        <h3>Patients</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-            </tr>
-          </thead>
-          <tbody>
-            {patients.map((p) => (
-              <tr key={p.id}>
-                <td>{p.name}</td>
-                <td>{p.email}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* APPOINTMENTS */}
-      <div className="doctor-table">
-        <h3>Appointments</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Patient</th>
-              <th>Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {appointments.map((a) => (
-              <tr key={a.id}>
-                <td>{a.patient}</td>
-                <td>{a.date}</td>
-                <td>{a.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
 import { useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -244,29 +143,6 @@ export default function DoctorDashboard() {
     loadDashboard();
   }, [token]);
 
-  if (!token) {
-    return (
-      <section className="panel">
-        <h2>Doctor Dashboard</h2>
-        <p className="form-hint">Login with a doctor account to use doctor services.</p>
-        <Link className="primary-button inline-button" to="/login">
-          Go to login
-        </Link>
-      </section>
-    );
-  }
-
-  if (currentRole !== "doctor") {
-    return (
-      <section className="panel">
-        <h2>Doctor Dashboard</h2>
-        <p className="status-message error">
-          This page is available only for doctor accounts.
-        </p>
-      </section>
-    );
-  }
-
   const handleProfileSave = async (event) => {
     event.preventDefault();
 
@@ -313,6 +189,32 @@ export default function DoctorDashboard() {
       setError(slotError.message || "Could not create slot");
     } finally {
       setSavingSlot(false);
+    }
+  };
+
+  const handleToggleSlotStatus = async (slot) => {
+    try {
+      setMessage("");
+      setError("");
+      await updateDoctorAvailability(token, slot._id, {
+        status: slot.status === "available" ? "unavailable" : "available"
+      });
+      await loadDashboard();
+      setMessage("Availability updated.");
+    } catch (slotError) {
+      setError(slotError.message || "Could not update slot");
+    }
+  };
+
+  const handleDeleteSlot = async (slotId) => {
+    try {
+      setMessage("");
+      setError("");
+      await deleteDoctorAvailability(token, slotId);
+      await loadDashboard();
+      setMessage("Availability slot deleted.");
+    } catch (slotError) {
+      setError(slotError.message || "Could not delete slot");
     }
   };
 
@@ -378,6 +280,29 @@ export default function DoctorDashboard() {
     }
   };
 
+  if (!token) {
+    return (
+      <section className="panel">
+        <h2>Doctor Dashboard</h2>
+        <p className="form-hint">Login with a doctor account to use doctor services.</p>
+        <Link className="primary-button inline-button" to="/login">
+          Go to login
+        </Link>
+      </section>
+    );
+  }
+
+  if (currentRole !== "doctor") {
+    return (
+      <section className="panel">
+        <h2>Doctor Dashboard</h2>
+        <p className="status-message error">
+          This page is available only for doctor accounts.
+        </p>
+      </section>
+    );
+  }
+
   if (loading) {
     return (
       <section className="panel">
@@ -410,20 +335,93 @@ export default function DoctorDashboard() {
           </div>
 
           <form className="field-grid" onSubmit={handleProfileSave}>
-            <input placeholder="Full name" value={profile.full_name} onChange={(e) => setProfile({ ...profile, full_name: e.target.value })} />
-            <input placeholder="Specialty" value={profile.specialty} onChange={(e) => setProfile({ ...profile, specialty: e.target.value })} />
-            <input placeholder="Consultation fee" type="number" value={profile.consultation_fee} onChange={(e) => setProfile({ ...profile, consultation_fee: e.target.value })} />
-            <input placeholder="Experience years" type="number" value={profile.experience_years} onChange={(e) => setProfile({ ...profile, experience_years: e.target.value })} />
-            <input placeholder="Hospital affiliation" value={profile.hospital_affiliation} onChange={(e) => setProfile({ ...profile, hospital_affiliation: e.target.value })} />
-            <input placeholder="License number" value={profile.license_number} onChange={(e) => setProfile({ ...profile, license_number: e.target.value })} />
-            <input className="full-span" placeholder="Qualifications (comma separated)" value={profile.qualifications} onChange={(e) => setProfile({ ...profile, qualifications: e.target.value })} />
-            <input className="full-span" placeholder="Languages (comma separated)" value={profile.languages} onChange={(e) => setProfile({ ...profile, languages: e.target.value })} />
-            <textarea className="full-span" rows="4" placeholder="Bio" value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} />
+            <input
+              placeholder="Full name"
+              value={profile.full_name}
+              onChange={(event) =>
+                setProfile({ ...profile, full_name: event.target.value })
+              }
+            />
+            <input
+              placeholder="Specialty"
+              value={profile.specialty}
+              onChange={(event) =>
+                setProfile({ ...profile, specialty: event.target.value })
+              }
+            />
+            <input
+              placeholder="Consultation fee"
+              type="number"
+              value={profile.consultation_fee}
+              onChange={(event) =>
+                setProfile({ ...profile, consultation_fee: event.target.value })
+              }
+            />
+            <input
+              placeholder="Experience years"
+              type="number"
+              value={profile.experience_years}
+              onChange={(event) =>
+                setProfile({ ...profile, experience_years: event.target.value })
+              }
+            />
+            <input
+              placeholder="Hospital affiliation"
+              value={profile.hospital_affiliation}
+              onChange={(event) =>
+                setProfile({
+                  ...profile,
+                  hospital_affiliation: event.target.value
+                })
+              }
+            />
+            <input
+              placeholder="License number"
+              value={profile.license_number}
+              onChange={(event) =>
+                setProfile({ ...profile, license_number: event.target.value })
+              }
+            />
+            <input
+              className="full-span"
+              placeholder="Qualifications (comma separated)"
+              value={profile.qualifications}
+              onChange={(event) =>
+                setProfile({ ...profile, qualifications: event.target.value })
+              }
+            />
+            <input
+              className="full-span"
+              placeholder="Languages (comma separated)"
+              value={profile.languages}
+              onChange={(event) =>
+                setProfile({ ...profile, languages: event.target.value })
+              }
+            />
+            <textarea
+              className="full-span"
+              rows="4"
+              placeholder="Bio"
+              value={profile.bio}
+              onChange={(event) =>
+                setProfile({ ...profile, bio: event.target.value })
+              }
+            />
             <label className="checkbox-row full-span">
-              <input type="checkbox" checked={profile.is_active} onChange={(e) => setProfile({ ...profile, is_active: e.target.checked })} />
+              <input
+                type="checkbox"
+                checked={profile.is_active}
+                onChange={(event) =>
+                  setProfile({ ...profile, is_active: event.target.checked })
+                }
+              />
               <span>Profile is active</span>
             </label>
-            <button className="primary-button inline-button" disabled={savingProfile} type="submit">
+            <button
+              className="primary-button inline-button"
+              disabled={savingProfile}
+              type="submit"
+            >
               {savingProfile ? "Saving..." : "Save profile"}
             </button>
           </form>
@@ -438,7 +436,13 @@ export default function DoctorDashboard() {
           </div>
 
           <form className="field-grid" onSubmit={handleSlotCreate}>
-            <select value={slotForm.day_of_week} onChange={(e) => setSlotForm({ ...slotForm, day_of_week: e.target.value })} disabled={Boolean(slotForm.specific_date)}>
+            <select
+              value={slotForm.day_of_week}
+              onChange={(event) =>
+                setSlotForm({ ...slotForm, day_of_week: event.target.value })
+              }
+              disabled={Boolean(slotForm.specific_date)}
+            >
               <option>Monday</option>
               <option>Tuesday</option>
               <option>Wednesday</option>
@@ -447,15 +451,42 @@ export default function DoctorDashboard() {
               <option>Saturday</option>
               <option>Sunday</option>
             </select>
-            <input type="date" value={slotForm.specific_date} onChange={(e) => setSlotForm({ ...slotForm, specific_date: e.target.value })} />
-            <input type="time" value={slotForm.start_time} onChange={(e) => setSlotForm({ ...slotForm, start_time: e.target.value })} />
-            <input type="time" value={slotForm.end_time} onChange={(e) => setSlotForm({ ...slotForm, end_time: e.target.value })} />
-            <select value={slotForm.status} onChange={(e) => setSlotForm({ ...slotForm, status: e.target.value })}>
+            <input
+              type="date"
+              value={slotForm.specific_date}
+              onChange={(event) =>
+                setSlotForm({ ...slotForm, specific_date: event.target.value })
+              }
+            />
+            <input
+              type="time"
+              value={slotForm.start_time}
+              onChange={(event) =>
+                setSlotForm({ ...slotForm, start_time: event.target.value })
+              }
+            />
+            <input
+              type="time"
+              value={slotForm.end_time}
+              onChange={(event) =>
+                setSlotForm({ ...slotForm, end_time: event.target.value })
+              }
+            />
+            <select
+              value={slotForm.status}
+              onChange={(event) =>
+                setSlotForm({ ...slotForm, status: event.target.value })
+              }
+            >
               <option value="available">Available</option>
               <option value="booked">Booked</option>
               <option value="unavailable">Unavailable</option>
             </select>
-            <button className="primary-button inline-button" disabled={savingSlot} type="submit">
+            <button
+              className="primary-button inline-button"
+              disabled={savingSlot}
+              type="submit"
+            >
               {savingSlot ? "Saving..." : "Add slot"}
             </button>
           </form>
@@ -463,13 +494,27 @@ export default function DoctorDashboard() {
           <div className="simple-list">
             {slots.map((slot) => (
               <div className="summary-card simple-item" key={slot._id}>
-                <strong>{slot.specific_date ? formatDateTime(slot.specific_date) : slot.day_of_week}</strong>
-                <span className="form-hint">{slot.start_time} - {slot.end_time}</span>
+                <strong>
+                  {slot.specific_date
+                    ? formatDateTime(slot.specific_date)
+                    : slot.day_of_week}
+                </strong>
+                <span className="form-hint">
+                  {slot.start_time} - {slot.end_time}
+                </span>
                 <div className="card-actions">
-                  <button className="secondary-button inline-button" type="button" onClick={() => updateDoctorAvailability(token, slot._id, { status: slot.status === "available" ? "unavailable" : "available" }).then(loadDashboard).catch((err) => setError(err.message))}>
+                  <button
+                    className="secondary-button inline-button"
+                    type="button"
+                    onClick={() => handleToggleSlotStatus(slot)}
+                  >
                     Toggle status
                   </button>
-                  <button className="ghost-link" type="button" onClick={() => deleteDoctorAvailability(token, slot._id).then(loadDashboard).catch((err) => setError(err.message))}>
+                  <button
+                    className="ghost-link"
+                    type="button"
+                    onClick={() => handleDeleteSlot(slot._id)}
+                  >
                     Delete
                   </button>
                 </div>
@@ -492,7 +537,9 @@ export default function DoctorDashboard() {
             {appointments.map((appointment) => (
               <div className="summary-card simple-item" key={appointment._id}>
                 <strong>{formatDateTime(appointment.scheduled_at)}</strong>
-                <span className="form-hint">Patient: {appointment.patient_id}</span>
+                <span className="form-hint">
+                  Patient: {appointment.patient_id}
+                </span>
                 <select
                   value={drafts[appointment._id]?.status || "scheduled"}
                   onChange={(event) =>
@@ -526,10 +573,18 @@ export default function DoctorDashboard() {
                   }
                 />
                 <div className="card-actions">
-                  <button className="primary-button inline-button" type="button" onClick={() => handleAppointmentUpdate(appointment._id)}>
+                  <button
+                    className="primary-button inline-button"
+                    type="button"
+                    onClick={() => handleAppointmentUpdate(appointment._id)}
+                  >
                     Save
                   </button>
-                  <button className="secondary-button inline-button" type="button" onClick={() => handleLoadReports(appointment.patient_id)}>
+                  <button
+                    className="secondary-button inline-button"
+                    type="button"
+                    onClick={() => handleLoadReports(appointment.patient_id)}
+                  >
                     View reports
                   </button>
                   <button
@@ -545,7 +600,10 @@ export default function DoctorDashboard() {
                   >
                     Prefill Rx
                   </button>
-                  <Link className="ghost-link" to={`/consultation/${appointment._id}?role=doctor`}>
+                  <Link
+                    className="ghost-link"
+                    to={`/consultation/${appointment._id}?role=doctor`}
+                  >
                     Start consultation
                   </Link>
                 </div>
@@ -558,7 +616,11 @@ export default function DoctorDashboard() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Patient Reports</p>
-              <h3>{selectedPatient ? `Files for ${selectedPatient}` : "Select an appointment patient"}</h3>
+              <h3>
+                {selectedPatient
+                  ? `Files for ${selectedPatient}`
+                  : "Select an appointment patient"}
+              </h3>
             </div>
           </div>
 
@@ -566,8 +628,14 @@ export default function DoctorDashboard() {
             {reports.map((report) => (
               <div className="summary-card simple-item" key={report._id}>
                 <strong>{report.title}</strong>
-                <span className="form-hint">{report.description || report.file_name}</span>
-                <button className="secondary-button inline-button" type="button" onClick={() => handleDownload(report._id, report.file_name)}>
+                <span className="form-hint">
+                  {report.description || report.file_name}
+                </span>
+                <button
+                  className="secondary-button inline-button"
+                  type="button"
+                  onClick={() => handleDownload(report._id, report.file_name)}
+                >
                   Download
                 </button>
               </div>
@@ -591,39 +659,147 @@ export default function DoctorDashboard() {
           </div>
 
           <form className="field-grid" onSubmit={handlePrescriptionSubmit}>
-            <input placeholder="Appointment ID" value={prescriptionForm.appointment_id} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, appointment_id: e.target.value })} />
-            <input placeholder="Patient ID" value={prescriptionForm.patient_id} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, patient_id: e.target.value })} />
-            <textarea className="full-span" rows="3" placeholder="Diagnosis" value={prescriptionForm.diagnosis} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, diagnosis: e.target.value })} required />
-            <textarea className="full-span" rows="3" placeholder="Notes" value={prescriptionForm.notes} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, notes: e.target.value })} />
-            <input type="date" value={prescriptionForm.follow_up_date} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, follow_up_date: e.target.value })} />
+            <input
+              placeholder="Appointment ID"
+              value={prescriptionForm.appointment_id}
+              onChange={(event) =>
+                setPrescriptionForm({
+                  ...prescriptionForm,
+                  appointment_id: event.target.value
+                })
+              }
+            />
+            <input
+              placeholder="Patient ID"
+              value={prescriptionForm.patient_id}
+              onChange={(event) =>
+                setPrescriptionForm({
+                  ...prescriptionForm,
+                  patient_id: event.target.value
+                })
+              }
+            />
+            <textarea
+              className="full-span"
+              rows="3"
+              placeholder="Diagnosis"
+              value={prescriptionForm.diagnosis}
+              onChange={(event) =>
+                setPrescriptionForm({
+                  ...prescriptionForm,
+                  diagnosis: event.target.value
+                })
+              }
+              required
+            />
+            <textarea
+              className="full-span"
+              rows="3"
+              placeholder="Notes"
+              value={prescriptionForm.notes}
+              onChange={(event) =>
+                setPrescriptionForm({
+                  ...prescriptionForm,
+                  notes: event.target.value
+                })
+              }
+            />
+            <input
+              type="date"
+              value={prescriptionForm.follow_up_date}
+              onChange={(event) =>
+                setPrescriptionForm({
+                  ...prescriptionForm,
+                  follow_up_date: event.target.value
+                })
+              }
+            />
             {prescriptionForm.medications.map((item, index) => (
               <div className="med-row full-span" key={index}>
-                <input placeholder="Medication" value={item.medication_name} onChange={(e) => {
-                  const next = [...prescriptionForm.medications];
-                  next[index] = { ...next[index], medication_name: e.target.value };
-                  setPrescriptionForm({ ...prescriptionForm, medications: next });
-                }} />
-                <input placeholder="Dosage" value={item.dosage} onChange={(e) => {
-                  const next = [...prescriptionForm.medications];
-                  next[index] = { ...next[index], dosage: e.target.value };
-                  setPrescriptionForm({ ...prescriptionForm, medications: next });
-                }} />
-                <input placeholder="Frequency" value={item.frequency} onChange={(e) => {
-                  const next = [...prescriptionForm.medications];
-                  next[index] = { ...next[index], frequency: e.target.value };
-                  setPrescriptionForm({ ...prescriptionForm, medications: next });
-                }} />
-                <input placeholder="Duration" value={item.duration} onChange={(e) => {
-                  const next = [...prescriptionForm.medications];
-                  next[index] = { ...next[index], duration: e.target.value };
-                  setPrescriptionForm({ ...prescriptionForm, medications: next });
-                }} />
+                <input
+                  placeholder="Medication"
+                  value={item.medication_name}
+                  onChange={(event) => {
+                    const next = [...prescriptionForm.medications];
+                    next[index] = {
+                      ...next[index],
+                      medication_name: event.target.value
+                    };
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medications: next
+                    });
+                  }}
+                />
+                <input
+                  placeholder="Dosage"
+                  value={item.dosage}
+                  onChange={(event) => {
+                    const next = [...prescriptionForm.medications];
+                    next[index] = { ...next[index], dosage: event.target.value };
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medications: next
+                    });
+                  }}
+                />
+                <input
+                  placeholder="Frequency"
+                  value={item.frequency}
+                  onChange={(event) => {
+                    const next = [...prescriptionForm.medications];
+                    next[index] = {
+                      ...next[index],
+                      frequency: event.target.value
+                    };
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medications: next
+                    });
+                  }}
+                />
+                <input
+                  placeholder="Duration"
+                  value={item.duration}
+                  onChange={(event) => {
+                    const next = [...prescriptionForm.medications];
+                    next[index] = {
+                      ...next[index],
+                      duration: event.target.value
+                    };
+                    setPrescriptionForm({
+                      ...prescriptionForm,
+                      medications: next
+                    });
+                  }}
+                />
               </div>
             ))}
-            <button className="secondary-button inline-button" type="button" onClick={() => setPrescriptionForm({ ...prescriptionForm, medications: [...prescriptionForm.medications, { medication_name: "", dosage: "", frequency: "", duration: "" }] })}>
+            <button
+              className="secondary-button inline-button"
+              type="button"
+              onClick={() =>
+                setPrescriptionForm({
+                  ...prescriptionForm,
+                  medications: [
+                    ...prescriptionForm.medications,
+                    {
+                      medication_name: "",
+                      dosage: "",
+                      frequency: "",
+                      duration: ""
+                    }
+                  ]
+                })
+              }
+            >
               Add medication row
             </button>
-            <button className="primary-button inline-button" disabled={issuingPrescription} type="submit">
+            <button
+              className="primary-button inline-button"
+              disabled={issuingPrescription}
+              type="submit"
+            >
               {issuingPrescription ? "Issuing..." : "Issue prescription"}
             </button>
           </form>
