@@ -1,7 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext"; // ✅ IMPORTANT
+import { AuthProvider } from "./context/AuthContext";
 import "./App.css";
 import AppShell from "./components/AppShell";
+
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -22,15 +25,39 @@ import AddPaymentMethodPage from "./pages/AddPaymentMethodPage";
 
 function App() {
   return (
-    <AuthProvider> {/* ✅ Wrap EVERYTHING */}
+    <AuthProvider>
       <Router>
+
+        {/* ✅ TOAST GLOBAL CONTAINER (ADDED ONLY THIS) */}
+        <ToastContainer position="top-right" autoClose={3000} />
+
         <Routes>
 
-          {/* 🔓 PUBLIC ROUTES (NO LAYOUT) */}
+          {/* 🔓 PUBLIC ROUTES */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* 🔒 PRIVATE ROUTES (WITH LAYOUT) */}
+          {/* ADMIN */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute role="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* DOCTOR */}
+          <Route
+            path="/doctor/dashboard"
+            element={
+              <ProtectedRoute role="doctor">
+                <DoctorDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 🔒 PRIVATE ROUTES */}
           <Route
             path="/*"
             element={
@@ -44,25 +71,6 @@ function App() {
                   <Route path="/payment/status" element={<PaymentStatusPage />} />
                   <Route path="/payment/status/:paymentId" element={<PaymentStatusPage />} />
                   <Route path="/payment/add-method" element={<AddPaymentMethodPage />} />
-
-                  {/* DASHBOARDS */}
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute role="admin">
-                        <AdminDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  <Route
-                    path="/doctor/dashboard"
-                    element={
-                      <ProtectedRoute role="doctor">
-                        <DoctorDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
 
                   <Route
                     path="/patient/dashboard"

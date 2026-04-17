@@ -3,9 +3,9 @@ const User = require("../models/user.model");
 // GET ALL DOCTORS (pending or all)
 exports.getAllUsers = async (req, res) => {
   try {
-    const doctors = await User.find({ role: "doctor" }).select("-password");
+    const users = await User.find().select("-password");
 
-    res.json(doctors); // ✅ always returns array
+    res.json(users); // ✅ returns doctors + patients
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -41,15 +41,44 @@ exports.verifyDoctor = async (req, res) => {
 // DELETE USER
 exports.deleteUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    const user = await User.findById(req.params.id);
 
-    const deleted = await User.findByIdAndDelete(id);
-
-    if (!deleted) {
+    if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    res.json({ msg: "User deleted" });
+    // 🚫 Prevent deleting admin
+    if (user.role === "admin") {
+      return res.status(403).json({ msg: "Cannot delete admin" });
+    }
+
+    await user.deleteOne();
+
+    res.json({ msg: "User deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      {
+        name: req.body.name,
+        email: req.body.email,
+        role: req.body.role,
+      },
+      { new: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    res.json(updatedUser);
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }

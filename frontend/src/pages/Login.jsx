@@ -2,6 +2,7 @@ import { useState, useContext } from "react";
 import { loginUser } from "../services/authService";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import "./login.css";
 
 export default function Login() {
   const { login } = useContext(AuthContext);
@@ -11,108 +12,77 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    console.log("LOGIN CLICKED:", { email, password });
+    try {
+      const res = await loginUser({ email, password });
 
-    const res = await loginUser({ email, password });
+      const { role, isVerified } = res.data;
 
-    console.log("LOGIN RESPONSE:", res.data);
+      login(res.data);
 
-    // ❌ OLD: const user = res.data.user;
-    const { role, isVerified } = res.data;
-
-    login(res.data);
-
-    // ✅ FIXED ROUTING
-    if (role === "admin") {
-      navigate("/admin");
-    }
-
-    else if (role === "doctor") {
-      if (isVerified) {
-        navigate("/doctor/dashboard");
+      if (role === "admin") navigate("/admin");
+      else if (role === "doctor") {
+        if (isVerified) navigate("/doctor/dashboard");
+        else alert("Doctor not verified yet");
       } else {
-        alert("Doctor not verified yet");
+        navigate("/patient/dashboard");
       }
+
+    } catch (err) {
+      alert(err.response?.data?.msg || "Login failed");
     }
+  };
 
-    else {
-      navigate("/patient/dashboard");
-    }
+  return (
+    <div className="login-page">
 
-  } catch (err) {
-    console.log("LOGIN ERROR:", err.response?.data || err.message);
-    alert(err.response?.data?.msg || "Login failed");
-  }
-};
+      <div className="login-glow"></div>
 
- return (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 px-4">
-    
-    <div className="w-full max-w-md">
-      <form
-        onSubmit={handleSubmit}
-        className="backdrop-blur-lg bg-white/90 p-8 rounded-2xl shadow-2xl border border-white/30"
-      >
-        {/* Logo / Title */}
-        <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
-          <p className="text-gray-500 text-sm mt-1">
-            Login to your account
+      <div className="login-container">
+
+        <form onSubmit={handleSubmit} className="login-card">
+
+          <div className="login-header">
+            <h2>Welcome Back</h2>
+            <p>Sign in to continue</p>
+          </div>
+
+          <div className="login-field">
+            <label>Email</label>
+            <input
+              type="email"
+              placeholder="you@example.com"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="login-field">
+            <label>Password</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          <button type="submit" className="login-button">
+            Sign In
+          </button>
+
+          <div className="login-divider">
+            <span>OR</span>
+          </div>
+
+          <p className="login-footer">
+            Don’t have an account?{" "}
+            <span onClick={() => navigate("/register")}>
+              Create one
+            </span>
           </p>
-        </div>
 
-        {/* Email */}
-        <div className="mb-4">
-          <label className="text-sm text-gray-600">Email</label>
-          <input
-            type="email"
-            placeholder="you@example.com"
-            className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
-        {/* Password */}
-        <div className="mb-6">
-          <label className="text-sm text-gray-600">Password</label>
-          <input
-            type="password"
-            placeholder="••••••••"
-            className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-
-        {/* Button */}
-        <button
-          type="submit"
-          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg font-semibold hover:opacity-90 transition"
-        >
-          Sign In
-        </button>
-
-        {/* Divider */}
-        <div className="flex items-center my-6">
-          <div className="flex-1 h-px bg-gray-300"></div>
-          <span className="px-3 text-gray-400 text-sm">OR</span>
-          <div className="flex-1 h-px bg-gray-300"></div>
-        </div>
-
-        {/* Register Link */}
-        <p className="text-sm text-center text-gray-600">
-          Don’t have an account?{" "}
-          <span
-            onClick={() => navigate("/register")}
-            className="text-blue-600 font-medium cursor-pointer hover:underline"
-          >
-            Create one
-          </span>
-        </p>
-      </form>
+        </form>
+      </div>
     </div>
-  </div>
-);
+  );
 }
