@@ -2,6 +2,21 @@ import { apiRequest, downloadFile } from "./apiClient";
 
 const API = "/api/patients";
 
+const parseTextPayload = (text) => {
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { message: text };
+  }
+};
+
+const getErrorMessage = (payload) =>
+  payload?.message || payload?.msg || payload?.error || "Request failed";
+
 export const getMyPatientProfile = (token) =>
   apiRequest(`${API}/me`, { token });
 
@@ -15,12 +30,31 @@ export const updateMyPatientProfile = (token, payload) =>
 export const getMyPatientReports = (token) =>
   apiRequest(`${API}/me/reports`, { token });
 
-export const uploadPatientReport = (token, payload) =>
-  apiRequest(`${API}/me/reports`, {
+export const uploadPatientReport = async (token, payload) => {
+  const { file, ...meta } = payload;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/octet-stream",
+    "X-Report-Meta": encodeURIComponent(JSON.stringify(meta))
+  };
+
+  const response = await fetch(`${API}/me/reports`, {
     method: "POST",
-    token,
-    body: payload
+    headers,
+    body: file
   });
+
+  const contentType = response.headers.get("content-type") || "";
+  const responsePayload = contentType.includes("application/json")
+    ? await response.json()
+    : parseTextPayload(await response.text());
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(responsePayload));
+  }
+
+  return responsePayload;
+};
 
 export const downloadPatientReport = (token, reportId) =>
   downloadFile(`${API}/reports/${reportId}/file`, token);

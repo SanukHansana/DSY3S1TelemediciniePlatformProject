@@ -5,6 +5,8 @@ import {
   createOrGetSession,
   getAppointmentById,
   getAppointments,
+  getDoctorById,
+  getDoctorSlots,
   getPrescriptionsForPatient
 } from "../lib/serviceClients.js";
 import MedicalReport from "../models/medicalReport.model.js";
@@ -45,6 +47,94 @@ const sanitizeFileName = (value) =>
     .replace(/[^a-zA-Z0-9._-]/g, "_")
     .slice(0, 100);
 
+const toFileBuffer = (value) => {
+  if (!value) {
+    return Buffer.alloc(0);
+  }
+
+  if (Buffer.isBuffer(value)) {
+    return value;
+  }
+
+  if (value?._bsontype === "Binary" && value.buffer) {
+    return Buffer.from(value.buffer);
+  }
+
+  if (value?.buffer) {
+    return Buffer.from(value.buffer);
+  }
+
+  if (Array.isArray(value?.data)) {
+    return Buffer.from(value.data);
+  }
+
+  return Buffer.alloc(0);
+};
+
+const parseReportMetaHeader = (value) => {
+  if (!value) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(decodeURIComponent(String(value)));
+  } catch (error) {
+    return {};
+  }
+};
+
+const toDateOnlyString = (value) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 10);
+};
+
+const isBookablePublicSlot = (slot) => {
+  if (!slot || slot.status !== "available") {
+    return false;
+  }
+
+  if (!slot.specific_date) {
+    return true;
+  }
+
+  const datePart = toDateOnlyString(slot.specific_date);
+
+  if (!datePart) {
+    return false;
+  }
+
+  const endTime = String(slot.end_time || "").trim();
+  const fallbackTime = String(slot.start_time || "").trim() || "23:59";
+  const clock = endTime || fallbackTime;
+  const slotEnd = new Date(`${datePart}T${clock}:00`);
+
+  if (Number.isNaN(slotEnd.getTime())) {
+    return true;
+  }
+
+  return slotEnd.getTime() >= Date.now();
+};
+
+const resolveFeeAmount = (requestedFee, doctorFee) => {
+  const nextDoctorFee = Number(doctorFee);
+  const nextRequestedFee = Number(requestedFee);
+
+  if (Number.isFinite(nextDoctorFee) && nextDoctorFee >= 0) {
+    return nextDoctorFee;
+  }
+
+  if (Number.isFinite(nextRequestedFee) && nextRequestedFee > 0) {
+    return nextRequestedFee;
+  }
+
+  return null;
+};
+
 const buildProfilePatch = (body) => {
   const patch = {};
 
@@ -65,26 +155,16 @@ const buildProfilePatch = (body) => {
   return patch;
 };
 
-const getPatientDefaults = (userId) => ({
+const getPatientInsertDefaults = (userId) => ({
   _id: userId,
-  auth_user_id: userId,
-  full_name: "",
-  email: "",
-  date_of_birth: null,
-  gender: "",
-  phone: "",
-  address: "",
-  emergency_contact: "",
-  blood_group: "",
-  allergies: [],
-  chronic_conditions: []
+  auth_user_id: userId
 });
 
 const ensurePatientProfile = async (userId) =>
   Patient.findByIdAndUpdate(
     userId,
     {
-      $setOnInsert: getPatientDefaults(userId)
+      $setOnInsert: getPatientInsertDefaults(userId)
     },
     {
       new: true,
@@ -150,7 +230,7 @@ export const updateMyProfile = async (req, res) => {
   const patient = await Patient.findByIdAndUpdate(
     req.user.id,
     {
-      $setOnInsert: getPatientDefaults(req.user.id),
+      $setOnInsert: getPatientInsertDefaults(req.user.id),
       $set: patch
     },
     {
@@ -164,30 +244,44 @@ export const updateMyProfile = async (req, res) => {
 };
 
 export const uploadReport = async (req, res) => {
-  const title = req.body.title || req.body.file_name;
-  const fileName = req.body.file_name || req.body.fileName;
-  const contentBase64 = req.body.content_base64 || req.body.contentBase64;
+  await ensurePatientProfile(req.user.id);
+  const meta = Buffer.isBuffer(req.body)
+    ? parseReportMetaHeader(req.headers["x-report-meta"])
+    : req.body || {};
+  const title = String(meta.title || "").trim();
+  const fileName = meta.file_name || meta.fileName;
+  const mimeType =
+    meta.mime_type || meta.mimeType || "application/octet-stream";
+  const category = meta.category || "general";
+  const description = meta.description || "";
+  const buffer = Buffer.isBuffer(req.body)
+    ? req.body
+    : Buffer.from(
+        meta.content_base64 || meta.contentBase64 || "",
+        "base64"
+      );
 
-  if (!title || !fileName || !contentBase64) {
+  if (!title || !fileName || buffer.length === 0) {
     return res.status(400).json({
-      message: "title, file_name, and content_base64 are required"
+      message: "title, file_name, and file content are required"
     });
   }
 
-  await ensurePatientProfile(req.user.id);
-
-  const buffer = Buffer.from(contentBase64, "base64");
+  if (buffer.length === 0) {
+    return res.status(400).json({
+      message: "Uploaded report file is empty or could not be decoded"
+    });
+  }
 
   const report = await MedicalReport.create({
     _id: `report-${crypto.randomUUID()}`,
     patient_id: req.user.id,
     auth_user_id: req.user.id,
     title,
-    category: req.body.category || "general",
-    description: req.body.description || "",
+    category,
+    description,
     file_name: sanitizeFileName(fileName),
-    mime_type:
-      req.body.mime_type || req.body.mimeType || "application/octet-stream",
+    mime_type: mimeType,
     size_bytes: buffer.length,
     file_data: buffer,
     uploaded_at: new Date()
@@ -221,7 +315,7 @@ export const listPatientReports = async (req, res) => {
 };
 
 export const downloadReportFile = async (req, res) => {
-  const report = await MedicalReport.findById(req.params.reportId).lean();
+  const report = await MedicalReport.findById(req.params.reportId);
 
   if (!report) {
     return res.status(404).json({ message: "Report not found" });
@@ -231,13 +325,24 @@ export const downloadReportFile = async (req, res) => {
     return res.status(403).json({ message: "Access denied" });
   }
 
+  const fileName = sanitizeFileName(report.file_name || "report.bin");
+  const fileBuffer = toFileBuffer(report.file_data);
+
+  if (fileBuffer.length === 0) {
+    return res.status(500).json({ message: "Report file is empty or unreadable" });
+  }
+
   res.setHeader("Content-Type", report.mime_type || "application/octet-stream");
+  res.setHeader("Content-Length", String(fileBuffer.length));
+  res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader(
     "Content-Disposition",
-    `inline; filename="${report.file_name || "report.bin"}"`
+    `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(
+      fileName
+    )}`
   );
 
-  return res.send(report.file_data);
+  return res.send(fileBuffer);
 };
 
 export const listMyAppointments = async (req, res) => {
@@ -252,20 +357,57 @@ export const listMyAppointments = async (req, res) => {
 export const createMyAppointment = async (req, res) => {
   await ensurePatientProfile(req.user.id);
 
-  if (!req.body.doctor_id || !req.body.scheduled_at) {
+  if (!req.body.doctor_id) {
     return res
       .status(400)
-      .json({ message: "doctor_id and scheduled_at are required" });
+      .json({ message: "doctor_id is required" });
+  }
+
+  let doctor;
+
+  try {
+    doctor = await getDoctorById(req.body.doctor_id);
+  } catch (error) {
+    return res.status(error.status === 404 ? 404 : 400).json({
+      message: error.status === 404 ? "Doctor not found" : "Could not load doctor details"
+    });
+  }
+
+  let validatedSlot = null;
+
+  if (req.body.slot_id) {
+    try {
+      const doctorSlots = await getDoctorSlots(req.body.doctor_id);
+      validatedSlot = Array.isArray(doctorSlots)
+        ? doctorSlots.find((slot) => slot._id === req.body.slot_id)
+        : null;
+    } catch (error) {
+      return res.status(400).json({
+        message: "Could not validate the selected doctor slot"
+      });
+    }
+
+    if (!validatedSlot || !isBookablePublicSlot(validatedSlot)) {
+      return res.status(400).json({
+        message: "Selected doctor slot is not available"
+      });
+    }
+  }
+
+  if (!req.body.scheduled_at) {
+    return res
+      .status(400)
+      .json({ message: "scheduled_at is required" });
   }
 
   const payload = {
     patient_id: req.user.id,
     doctor_id: req.body.doctor_id,
-    slot_id: req.body.slot_id || null,
+    slot_id: validatedSlot?._id || null,
     status: "scheduled",
     appointment_type: req.body.appointment_type || "video",
     patient_notes: req.body.patient_notes || "",
-    fee_amount: req.body.fee_amount || null,
+    fee_amount: resolveFeeAmount(req.body.fee_amount, doctor?.consultation_fee),
     scheduled_at: req.body.scheduled_at
   };
 

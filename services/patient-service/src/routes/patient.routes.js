@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 
 import {
   createConsultationSession,
@@ -19,6 +19,10 @@ import {
 import { authenticate, authorize } from "../middleware/auth.js";
 
 const router = Router();
+const rawReportUpload = express.raw({
+  type: "application/octet-stream",
+  limit: "25mb"
+});
 
 router.get("/admin/all", authenticate, authorize("admin"), listAllPatientsForAdmin);
 router.get(
@@ -33,6 +37,7 @@ router.post(
   "/me/reports",
   authenticate,
   authorize("patient"),
+  rawReportUpload,
   uploadReport
 );
 router.get(

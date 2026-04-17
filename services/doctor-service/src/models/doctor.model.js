@@ -20,7 +20,7 @@ const doctorSchema = new mongoose.Schema(
     },
     consultation_fee: {
       type: Number,
-      default: 0,
+      default: null,
       min: 0
     },
     bio: {

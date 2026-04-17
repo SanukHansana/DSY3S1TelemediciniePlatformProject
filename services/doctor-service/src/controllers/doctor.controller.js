@@ -7,6 +7,7 @@ import {
   getPatientReports,
   updateAppointment
 } from "../lib/serviceClients.js";
+import mockDoctors from "../data/mockDoctors.js";
 import AvailabilitySlot from "../models/availability.model.js";
 import Doctor from "../models/doctor.model.js";
 import Prescription from "../models/prescription.model.js";
@@ -23,6 +24,26 @@ const doctorProfileFields = [
   "license_number",
   "is_active"
 ];
+
+const mockDoctorIds = mockDoctors.map((doctor) => doctor._id);
+
+const isMockSeedEnabled = () =>
+  ["1", "true", "yes", "on"].includes(
+    String(process.env.ENABLE_DOCTOR_MOCK_SEED || "").trim().toLowerCase()
+  );
+
+const withVisibleDoctorFilter = (filter = {}) =>
+  isMockSeedEnabled() || mockDoctorIds.length === 0
+    ? filter
+    : {
+        ...filter,
+        _id: {
+          $nin: mockDoctorIds
+        }
+      };
+
+const isHiddenMockDoctorId = (doctorId) =>
+  !isMockSeedEnabled() && mockDoctorIds.includes(String(doctorId || ""));
 
 const normalizeStringArray = (value) => {
   if (Array.isArray(value)) {
@@ -51,14 +72,33 @@ const buildProfilePatch = (body) => {
   }
 
   if (Object.hasOwn(patch, "consultation_fee")) {
-    patch.consultation_fee = Number(patch.consultation_fee) || 0;
+    if (
+      patch.consultation_fee === null ||
+      patch.consultation_fee === undefined ||
+      patch.consultation_fee === ""
+    ) {
+      patch.consultation_fee = null;
+    } else {
+      const consultationFee = Number(patch.consultation_fee);
+      patch.consultation_fee = Number.isFinite(consultationFee)
+        ? consultationFee
+        : null;
+    }
   }
 
   if (Object.hasOwn(patch, "experience_years")) {
-    patch.experience_years =
-      patch.experience_years === null || patch.experience_years === ""
-        ? null
-        : Number(patch.experience_years);
+    if (
+      patch.experience_years === null ||
+      patch.experience_years === undefined ||
+      patch.experience_years === ""
+    ) {
+      patch.experience_years = null;
+    } else {
+      const experienceYears = Number(patch.experience_years);
+      patch.experience_years = Number.isFinite(experienceYears)
+        ? experienceYears
+        : null;
+    }
   }
 
   if (Object.hasOwn(patch, "qualifications")) {
@@ -88,6 +128,43 @@ const validateSlotPayload = (body) => {
   return null;
 };
 
+const toDateOnlyString = (value) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 10);
+};
+
+const isBookablePublicSlot = (slot) => {
+  if (!slot || slot.status !== "available") {
+    return false;
+  }
+
+  if (!slot.specific_date) {
+    return true;
+  }
+
+  const datePart = toDateOnlyString(slot.specific_date);
+
+  if (!datePart) {
+    return false;
+  }
+
+  const endTime = String(slot.end_time || "").trim();
+  const fallbackTime = String(slot.start_time || "").trim() || "23:59";
+  const clock = endTime || fallbackTime;
+  const slotEnd = new Date(`${datePart}T${clock}:00`);
+
+  if (Number.isNaN(slotEnd.getTime())) {
+    return true;
+  }
+
+  return slotEnd.getTime() >= Date.now();
+};
+
 const toDoctor = (doctor, slots = []) => {
   const { __v, ...rest } = doctor;
 
@@ -113,27 +190,16 @@ const toPrescription = (prescription) => {
   };
 };
 
-const getDoctorDefaults = (userId) => ({
+const getDoctorInsertDefaults = (userId) => ({
   _id: userId,
-  auth_user_id: userId,
-  full_name: "",
-  specialty: "",
-  consultation_fee: 0,
-  bio: "",
-  experience_years: null,
-  qualifications: [],
-  languages: [],
-  hospital_affiliation: "",
-  license_number: "",
-  is_verified: false,
-  is_active: true
+  auth_user_id: userId
 });
 
 const ensureDoctorProfile = async (userId) =>
   Doctor.findByIdAndUpdate(
     userId,
     {
-      $setOnInsert: getDoctorDefaults(userId)
+      $setOnInsert: getDoctorInsertDefaults(userId)
     },
     {
       new: true,
@@ -142,9 +208,17 @@ const ensureDoctorProfile = async (userId) =>
     }
   ).lean();
 
-const getSlotsByDoctorId = async (doctorIds) => {
-  const slots = await AvailabilitySlot.find({
+const getSlotsByDoctorId = async (doctorIds, { onlyAvailable = false } = {}) => {
+  const filter = {
     doctor_id: { $in: doctorIds }
+  };
+
+  if (onlyAvailable) {
+    filter.status = "available";
+  }
+
+  const slots = await AvailabilitySlot.find({
+    ...filter
   })
     .sort({ specific_date: 1, start_time: 1 })
     .lean();
@@ -161,46 +235,72 @@ const getSlotsByDoctorId = async (doctorIds) => {
 };
 
 export const listPublicDoctors = async (req, res) => {
-  const doctors = await Doctor.find({
-    is_active: true,
-    is_verified: true
-  })
+  const doctors = await Doctor.find(
+    withVisibleDoctorFilter({
+      is_active: true
+    })
+  )
     .sort({ full_name: 1 })
     .lean();
 
-  const slotMap = await getSlotsByDoctorId(doctors.map((doctor) => doctor._id));
+  const slotMap = await getSlotsByDoctorId(doctors.map((doctor) => doctor._id), {
+    onlyAvailable: true
+  });
 
   return res.json(
-    doctors.map((doctor) => toDoctor(doctor, slotMap.get(doctor._id) || []))
+    doctors
+      .map((doctor) =>
+        toDoctor(
+          doctor,
+          (slotMap.get(doctor._id) || []).filter(isBookablePublicSlot)
+        )
+      )
+      .filter((doctor) => doctor.slots.length > 0)
   );
 };
 
 export const getDoctorByPublicId = async (req, res) => {
-  const doctor = await Doctor.findById(req.params.doctorId).lean();
-
-  if (!doctor) {
+  if (isHiddenMockDoctorId(req.params.doctorId)) {
     return res.status(404).json({ message: "Doctor not found" });
   }
 
-  const slots = await AvailabilitySlot.find({ doctor_id: doctor._id })
+  const doctor = await Doctor.findById(req.params.doctorId).lean();
+
+  if (!doctor || doctor.is_active !== true) {
+    return res.status(404).json({ message: "Doctor not found" });
+  }
+
+  const slots = await AvailabilitySlot.find({
+    doctor_id: doctor._id,
+    status: "available"
+  })
     .sort({ specific_date: 1, start_time: 1 })
     .lean();
 
-  return res.json(toDoctor(doctor, slots.map(toSlot)));
+  return res.json(
+    toDoctor(doctor, slots.map(toSlot).filter(isBookablePublicSlot))
+  );
 };
 
 export const getDoctorSlots = async (req, res) => {
-  const doctor = await Doctor.findById(req.params.doctorId).lean();
-
-  if (!doctor) {
+  if (isHiddenMockDoctorId(req.params.doctorId)) {
     return res.status(404).json({ message: "Doctor not found" });
   }
 
-  const slots = await AvailabilitySlot.find({ doctor_id: doctor._id })
+  const doctor = await Doctor.findById(req.params.doctorId).lean();
+
+  if (!doctor || doctor.is_active !== true) {
+    return res.status(404).json({ message: "Doctor not found" });
+  }
+
+  const slots = await AvailabilitySlot.find({
+    doctor_id: doctor._id,
+    status: "available"
+  })
     .sort({ specific_date: 1, start_time: 1 })
     .lean();
 
-  return res.json(slots.map(toSlot));
+  return res.json(slots.map(toSlot).filter(isBookablePublicSlot));
 };
 
 export const getMyProfile = async (req, res) => {
@@ -218,7 +318,7 @@ export const updateMyProfile = async (req, res) => {
   const doctor = await Doctor.findByIdAndUpdate(
     req.user.id,
     {
-      $setOnInsert: getDoctorDefaults(req.user.id),
+      $setOnInsert: getDoctorInsertDefaults(req.user.id),
       $set: patch
     },
     {
@@ -468,7 +568,9 @@ export const listPatientReports = async (req, res) => {
 };
 
 export const listAllDoctorsForAdmin = async (req, res) => {
-  const doctors = await Doctor.find().sort({ created_at: -1 }).lean();
+  const doctors = await Doctor.find(withVisibleDoctorFilter({}))
+    .sort({ created_at: -1 })
+    .lean();
   const slotMap = await getSlotsByDoctorId(doctors.map((doctor) => doctor._id));
 
   return res.json(
@@ -477,12 +579,29 @@ export const listAllDoctorsForAdmin = async (req, res) => {
 };
 
 export const getAdminOverview = async (req, res) => {
+  const doctorFilter = withVisibleDoctorFilter({});
+  const slotFilter =
+    isMockSeedEnabled() || mockDoctorIds.length === 0
+      ? {}
+      : {
+          doctor_id: {
+            $nin: mockDoctorIds
+          }
+        };
+  const prescriptionFilter =
+    isMockSeedEnabled() || mockDoctorIds.length === 0
+      ? {}
+      : {
+          doctor_id: {
+            $nin: mockDoctorIds
+          }
+        };
   const [totalDoctors, verifiedDoctors, totalSlots, totalPrescriptions] =
     await Promise.all([
-      Doctor.countDocuments(),
-      Doctor.countDocuments({ is_verified: true }),
-      AvailabilitySlot.countDocuments(),
-      Prescription.countDocuments()
+      Doctor.countDocuments(doctorFilter),
+      Doctor.countDocuments(withVisibleDoctorFilter({ is_verified: true })),
+      AvailabilitySlot.countDocuments(slotFilter),
+      Prescription.countDocuments(prescriptionFilter)
     ]);
 
   return res.json({
@@ -501,15 +620,22 @@ export const updateDoctorVerification = async (req, res) => {
       .json({ message: "is_verified must be provided as a boolean" });
   }
 
+  if (isHiddenMockDoctorId(req.params.doctorId)) {
+    return res.status(404).json({ message: "Doctor not found" });
+  }
+
   const doctor = await Doctor.findByIdAndUpdate(
     req.params.doctorId,
     {
+      $setOnInsert: getDoctorInsertDefaults(req.params.doctorId),
       $set: {
         is_verified: Boolean(req.body.is_verified)
       }
     },
     {
-      new: true
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
     }
   ).lean();
 
